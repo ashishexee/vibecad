@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Unit tests (no Docker) ──────────────────────────────────────
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install pytest httpx
+
+      - name: Run unit tests
+        run: python -m pytest tests/unit/ -v
+
+  # ── Frontend lint + build ───────────────────────────────────────
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  # ── Integration tests (Docker Compose) ─────────────────────────
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: [unit-tests, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env file for AI server
+        run: |
+          cat > backend/ai-server/.env << EOF
+          PORT=4000
+          CAD_SERVER_URL=http://cad-server:5000
+          MIMO_API_KEY=${{ secrets.MIMO_API_KEY }}
+          OG_API_KEY=${{ secrets.OG_API_KEY }}
+          GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
+          FIREWORKS_API_KEY=${{ secrets.FIREWORKS_API_KEY }}
+          EOF
+
+      - name: Build and start containers
+        working-directory: backend
+        run: docker compose up -d --build
+
+      - name: Wait for services to be healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:5000/health && curl -s http://localhost:4000/api/health; then
+              echo "Services are up"
+              break
+            fi
+            echo "Waiting for services... ($i/30)"
+            sleep 2
+          done
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install pytest httpx
+
+      - name: Run integration tests
+        run: python -m pytest tests/integration/ -v --timeout=120
+
+      - name: Show container logs on failure
+        if: failure()
+        working-directory: backend
+        run: docker compose logs --tail=50
+
+      - name: Stop containers
+        if: always()
+        working-directory: backend
+        run: docker compose down
