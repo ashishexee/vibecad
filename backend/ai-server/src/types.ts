@@ -23,3 +23,25 @@ export interface CadServerResponse {
   step_base64?: string;
   glb_base64?: string;
 }
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  reasoning?: string;
+  provider?: string;
+}
+
+export interface SavedModel {
+  id: string;
+  name: string;
+  root_hash_stl?: string;
+  root_hash_step?: string;
+  root_hash_glb?: string;
+  root_hash_snapshots?: string;
+  root_hash_inspection?: string;
+  parameters?: Parameter[];
+  inspection?: Record<string, unknown>;
+  bounding_box?: { size?: number[] };
+  chat_session_id?: string;
+  created_at: string;
+}

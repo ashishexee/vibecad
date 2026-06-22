@@ -1,6 +1,27 @@
 import type { Provider } from '@/types';
 
-export const API_URL = '';
+export const API_URL = import.meta.env.VITE_API_URL || '';
+
+// ── Auth ──
+export const AUTH_ENDPOINTS = {
+  VERIFY: '/api/auth/verify',
+} as const;
+
+// ── Chat persistence ──
+export const CHAT_ENDPOINTS = {
+  SAVE: '/api/chat/save',
+  SESSIONS: '/api/chat/sessions',
+  HISTORY: (sessionId: string) => `/api/chat/history/${sessionId}`,
+} as const;
+
+// ── Model storage (0G) ──
+export const MODEL_ENDPOINTS = {
+  SAVE: '/api/models/save',
+  UPLOAD_0G: '/api/models/upload-to-0g',
+  LIST: '/api/models',
+  GET: (id: string) => `/api/models/${id}`,
+  DELETE: (id: string) => `/api/models/${id}`,
+} as const;
 
 export const PROVIDERS: Provider[] = [
   { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', desc: 'Fast & cheap · 1M ctx' },

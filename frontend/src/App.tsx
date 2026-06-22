@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Eye, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen } from 'lucide-react';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
-import type { Parameter, Message, InspectionData, ClarificationOption, WorkflowStep } from '@/types';
-import { API_URL } from '@/lib/constants';
+import type { Parameter, Message, InspectionData, ClarificationOption, WorkflowStep, SessionListItem, Specification } from '@/types';
+import { API_URL, CHAT_ENDPOINTS } from '@/lib/constants';
+import { useAuth } from '@/hooks/useAuth';
 // Components
 import { Sidebar } from '@/components/layout/Sidebar';
 import { PreviewPanel } from '@/components/layout/PreviewPanel';
@@ -31,8 +32,16 @@ import { useParamUpdate } from '@/hooks/useParamUpdate';
 import { PARAM_PHASES, getProviderDisplayName } from '@/lib/constants';
 
 export default function App() {
-  // ── State ──
+  const auth = useAuth();
+
+  const authHeaders = useCallback((): Record<string, string> => {
+    return auth.isConnected ? { 'Authorization': `Bearer ${auth.getAuthHeader()}` } : {};
+  }, [auth.isConnected, auth.getAuthHeader]);
+
+  // State
   const [prompt, setPrompt] = useState('');
+  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
+  const [chatSessions, setChatSessions] = useState<SessionListItem[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [provider, setProvider] = useState('mimo');
@@ -93,6 +102,7 @@ export default function App() {
     onSnapshotsUpdate: setSnapshots,
     onDimViewsUpdate: setDimViews,
     onInspectionUpdate: setInspection,
+    getAuthHeaders: authHeaders,
   });
 
   // Cleanup
@@ -100,13 +110,104 @@ export default function App() {
     return () => { if (stlObjectUrl) URL.revokeObjectURL(stlObjectUrl); };
   }, [stlObjectUrl]);
 
-  // ── Handlers ──
-  const handleGenerate = useCallback(async (answers?: string, overridePrompt?: string) => {
+  const saveCurrentSession = useCallback(() => {
+    if (!auth.isConnected || messages.length === 0) return;
+    const allMsgs = messages.map(m => ({
+      role: m.role,
+      content: m.content,
+      specifications: m.specifications,
+      provider: m.provider,
+      dimViews: m.dimViews,
+    }));
+    fetch(`${API_URL}${CHAT_ENDPOINTS.SAVE}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ sessionId: chatSessionId, messages: allMsgs, parameters }),
+    }).catch(() => {});
+  }, [messages, chatSessionId, parameters, auth.isConnected, authHeaders]);
+
+  const handleLoadSession = useCallback(async (sessionId: string) => {
+    if (isGenerating) {
+      console.log('[LOAD] blocked: is generating');
+      return;
+    }
+    if (chatSessionId === sessionId) {
+      console.log('[LOAD] blocked: same session', sessionId);
+      return;
+    }
+    if (messages.length > 0 && chatSessionId && auth.isConnected) {
+      saveCurrentSession();
+    }
+    try {
+      console.log('[LOAD] fetching session:', sessionId);
+      const res = await fetch(`${API_URL}${CHAT_ENDPOINTS.HISTORY(sessionId)}`, {
+        headers: { 'Authorization': `Bearer ${auth.address || ''}` },
+      });
+      console.log('[LOAD] response status:', res.status);
+      if (!res.ok) return;
+      const data = await res.json();
+      const { session } = data;
+      if (!session) {
+        console.log('[LOAD] no session data');
+        return;
+      }
+      console.log('[LOAD] loaded session:', session.title, session.messages?.length, 'messages');
+      setChatSessionId(session.id);
+      setMessages(session.messages || []);
+      setCurrentCode('');
+      setParameters(session.parameters || []);
+      if (session.parameters?.length) {
+        const vals: Record<string, number> = {};
+        session.parameters.forEach((p: Parameter) => { vals[p.name] = p.default; });
+        setParamValues(vals);
+      }
+      setSnapshots({});
+      const latestDimViews = [...(session.messages || [])]
+        .reverse()
+        .find((m: Message) => m.dimViews && Object.keys(m.dimViews).length > 0)?.dimViews || {};
+      setDimViews(latestDimViews);
+      setStlUrl(null);
+      setStlBase64(undefined);
+      setStepBase64(undefined);
+    } catch (err) {
+      console.error('[LOAD] error:', err);
+    }
+  }, [isGenerating, chatSessionId, messages, auth.isConnected, auth.address, saveCurrentSession, setParamValues]);
+
+  // Fetch sessions on connect and auto-load latest
+  useEffect(() => {
+    if (!auth.isConnected || !auth.address) return;
+    fetch(`${API_URL}${CHAT_ENDPOINTS.SESSIONS}`, {
+      headers: { 'Authorization': `Bearer ${auth.address}` },
+    }).then(r => r.json()).then(d => {
+      setChatSessions(d.sessions || []);
+      if (d.sessions?.length > 0) {
+        handleLoadSession(d.sessions[0].id);
+      }
+    }).catch(() => {});
+  }, [auth.isConnected, auth.address, handleLoadSession]);
+
+  // Sync profile to Supabase on wallet connect
+  useEffect(() => {
+    if (!auth.isConnected || !auth.address) return;
+    fetch(`${API_URL}/api/auth/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.address}` },
+    }).catch(() => {});
+  }, [auth.isConnected, auth.address]);
+
+  // Handlers
+  const handleGenerate = useCallback(async (answers?: string, overridePrompt?: string, answerList?: Specification[]) => {
     const activePrompt = overridePrompt ?? prompt;
     if (!activePrompt.trim() || isGenerating) return;
+    if (!auth.isConnected) { setPrompt(''); return; }
 
     const isClarificationContinue = !!overridePrompt;
     const userMsg: Message = { role: 'user', content: activePrompt };
+    const answerMsg: Message | null = answers && answerList
+      ? { role: 'user', content: answers, specifications: answerList }
+      : null;
+
     if (!isClarificationContinue) {
       setMessages(prev => [...prev, userMsg]);
     }
@@ -122,7 +223,7 @@ export default function App() {
     try {
       const res = await fetch(`${API_URL}/api/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ prompt: userMsg.content, provider, history: messages, answers, reasoning: reasoningEnabled }),
       });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
@@ -133,7 +234,6 @@ export default function App() {
       const decoder = new TextDecoder();
       let buffer = '', finalData: any = null, currentEvent = '';
       let clarifyQuestions: ClarificationOption[] | null = null;
-      let clarifyPrompt = '';
       let liveInspection: InspectionData | null = null;
       let liveSnapshots: Record<string, string> = {};
       let liveDimViews: Record<string, string> = {};
@@ -183,7 +283,6 @@ export default function App() {
                 }
               } else if (currentEvent === 'clarify') {
                 clarifyQuestions = data.questions;
-                clarifyPrompt = data.originalPrompt || userMsg.content;
               } else if (currentEvent === 'inspection') {
                 liveInspection = data.inspection;
                 setInspection(data.inspection);
@@ -192,6 +291,7 @@ export default function App() {
                 setSnapshots(prev => ({ ...prev, ...data.snapshots }));
               } else if (currentEvent === 'dim-views') {
                 liveDimViews = { ...liveDimViews, ...data.dimViews };
+                setDimViews(prev => ({ ...prev, ...data.dimViews }));
                 console.log('[DIM-VIEWS] received', Object.keys(data.dimViews || {}));
               } else if (currentEvent === 'vision-check') {
                 setInspection(prev => prev ? { ...prev, visionChecking: true } as any : prev);
@@ -233,7 +333,6 @@ export default function App() {
                 if (data.inspection) setInspection(data.inspection);
                 if (data.snapshots) setSnapshots(data.snapshots);
                 if (data.visionVerified) visionVerified = true;
-                // Safety: ensure any running steps are marked done when the final payload arrives
                 const remainingRunning = liveSteps.filter(s => s.status === 'running');
                 if (remainingRunning.length > 0) {
                   const updated = liveSteps.map(s => s.status === 'running' ? { ...s, status: 'done' as const, detail: s.detail || 'Complete' } : s);
@@ -253,7 +352,6 @@ export default function App() {
 
       // Handle clarification
       if (clarifyQuestions && clarifyQuestions.length > 0 && !finalData) {
-        // Replace the placeholder with clarification
         setMessages(prev => {
           const next = [...prev];
           if (assistantMessageIdRef.current !== null && next[assistantMessageIdRef.current]) {
@@ -275,20 +373,12 @@ export default function App() {
         const assistantMsg: Message = {
           role: 'assistant',
           content: finalData.bestEffort
-            ? `Generated (best effort) — ${finalData.warning || 'model had issues'}`
+            ? `Generated (best effort) - ${finalData.warning || 'model had issues'}`
             : finalData.visionVerified
             ? `Generated with ${getProviderDisplayName(finalData.provider || provider)} (vision-verified)`
             : `Generated with ${getProviderDisplayName(finalData.provider || provider)}`,
-          reasoning: finalData.reasoning,
           provider: finalData.provider,
-          bestEffort: finalData.bestEffort,
-          warning: finalData.warning,
-          inspection: finalData.inspection,
-          snapshots: finalData.snapshots,
           dimViews: Object.keys(liveDimViews).length > 0 ? liveDimViews : (finalData.dimViews || {}),
-          visionVerified: finalData.visionVerified,
-          visionFeedback: visionFeedback || undefined,
-          steps: liveSteps,
         };
         setMessages(prev => {
           const next = [...prev];
@@ -318,6 +408,36 @@ export default function App() {
         }
         if (finalData.inspection) setInspection(finalData.inspection);
         if (finalData.snapshots) setSnapshots(finalData.snapshots);
+        setDimViews(Object.keys(liveDimViews).length > 0 ? liveDimViews : (finalData.dimViews || {}));
+
+        // Auto-save chat session
+        if (auth.isConnected) {
+          try {
+            const saveSourceMessages = isClarificationContinue
+              ? [...messages, ...(answerMsg ? [answerMsg] : []), assistantMsg]
+              : [...messages, userMsg, assistantMsg];
+            const allMessages = saveSourceMessages.map(m => ({
+              role: m.role,
+              content: m.content,
+              specifications: m.specifications,
+              provider: m.provider,
+              dimViews: m.dimViews,
+            }));
+            const saveRes = await fetch(`${API_URL}${CHAT_ENDPOINTS.SAVE}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...authHeaders() },
+              body: JSON.stringify({
+                sessionId: chatSessionId,
+                messages: allMessages,
+                parameters: finalData.parameters,
+              }),
+            });
+            if (saveRes.ok) {
+              const saveData = await saveRes.json();
+              if (saveData.sessionId) setChatSessionId(saveData.sessionId);
+            }
+          } catch {}
+        }
       }
     } catch (e: any) {
       const errorMsg = e.message?.includes('Failed to fetch')
@@ -339,19 +459,22 @@ export default function App() {
       reasoningBufferRef.current = '';
       if (reasoningRafRef.current) { cancelAnimationFrame(reasoningRafRef.current); reasoningRafRef.current = null; }
     }
-  }, [prompt, isGenerating, provider, messages, stlObjectUrl, reasoningEnabled, setParamValues]);
+  }, [prompt, isGenerating, provider, messages, stlObjectUrl, reasoningEnabled, setParamValues, auth.isConnected, authHeaders, chatSessionId]);
 
   const handleClarificationSubmit = useCallback((answers: string, answerList: { question: string; answer: string }[]) => {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
     if (!lastUserMsg) return;
     setMessages(prev => [
-      ...prev.filter(m => !m.clarification),
-      { role: 'user', content: answers, clarificationAnswers: answerList }
+      ...prev,
+      { role: 'user', content: answers, specifications: answerList }
     ]);
-    handleGenerate(answers, lastUserMsg.content);
+    handleGenerate(answers, lastUserMsg.content, answerList);
   }, [handleGenerate, messages]);
 
-  const handleNewTask = () => {
+  const handleNewTask = useCallback(() => {
+    if (messages.length > 0 && chatSessionId && auth.isConnected) {
+      saveCurrentSession();
+    }
     setMessages([]);
     setParameters([]);
     setCurrentCode('');
@@ -366,18 +489,27 @@ export default function App() {
     setSnapshots({});
     setDimViews({});
     setInspection(null);
+    setChatSessionId(null);
     resetParams();
-  };
+  }, [messages, chatSessionId, auth.isConnected, stlObjectUrl, saveCurrentSession, resetParams]);
 
   const hasModel = messages.length > 0 || isGenerating;
 
-  // ── Render ──
+  // Render
   return (
     <div className="flex h-dvh overflow-hidden">
       <Sidebar
         isOpen={sidebarOpen}
         onNewTask={handleNewTask}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+        walletAddress={auth.address}
+        isConnected={auth.isConnected}
+        isAuthLoading={auth.isLoading}
+        onConnect={() => auth.connect()}
+        onDisconnect={() => auth.disconnect()}
+        sessions={chatSessions}
+        activeSessionId={chatSessionId}
+        onSelectSession={handleLoadSession}
       />
 
       <div className="relative flex-1 overflow-auto bg-adam-bg-dark">
@@ -385,7 +517,6 @@ export default function App() {
           <div className="h-full bg-adam-bg-secondary-dark rounded-xl overflow-hidden flex relative">
 
             {!hasModel ? (
-              /* ─── Landing ─── */
               <LampContainer className="flex-1 min-h-0">
                 <h1 className="mb-8 text-center text-2xl font-medium text-adam-text-primary md:text-3xl">
                   What can VibeCAD help you build today?
@@ -412,11 +543,9 @@ export default function App() {
                 </GlowCard>
               </LampContainer>
             ) : (
-              /* ─── Editor ─── */
               <>
               <ResizablePanelGroup direction="horizontal" autoSaveId="vibecad-editor-v3" className={cn('h-full w-full', panelAnimating && 'panel-animated')}>
 
-                {/* Chat Panel */}
                 <ResizablePanel
                   panelRef={chatPanelRef}
                   collapsible
@@ -446,60 +575,33 @@ export default function App() {
                             <div className="text-[10px] text-adam-text-tertiary mb-1 font-medium">
                               {msg.role === 'user' ? 'You' : msg.provider ? getProviderDisplayName(msg.provider) : 'VibeCAD'}
                             </div>
-                            {msg.clarificationAnswers && msg.clarificationAnswers.length > 0 ? (
-                              <ClarificationAnswers answers={msg.clarificationAnswers} />
+                            {msg.specifications && msg.specifications.length > 0 ? (
+                              <ClarificationAnswers specifications={msg.specifications} />
                             ) : (
                               <div className="text-adam-text-primary leading-relaxed">{msg.content}</div>
                             )}
 
-                            {/* Workflow Timeline */}
-                            {msg.steps && msg.steps.length > 0 && (
-                              <WorkflowTimeline steps={msg.steps} reasoning={msg.reasoning} />
+                            {msg.role === 'assistant' && (
+                              <WorkflowTimeline provider={msg.provider} />
                             )}
 
-                            {/* Inline snapshots in chat */}
-                            {msg.snapshots && Object.keys(msg.snapshots).length > 0 && (
-                              <div className="mt-3 grid grid-cols-3 gap-1.5">
-                                {Object.entries(msg.snapshots).filter(([_, svg]) => svg && !svg.includes('error')).map(([view, svg]) => (
-                                  <div key={view} className="rounded-lg overflow-hidden border border-adam-neutral-700/50 bg-adam-bg-dark/50">
-                                    <div className="h-20 flex items-center justify-center" dangerouslySetInnerHTML={{ __html: svg }} />
-                                    <div className="text-center text-[8px] text-adam-text-tertiary py-0.5 uppercase tracking-wider">{view}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Inline 2D dimensional views in chat */}
                             {msg.dimViews && Object.keys(msg.dimViews).length > 0 && (
                               <DimViews dimViews={msg.dimViews} />
                             )}
 
-                            {/* Badges */}
                             <div className="flex flex-wrap gap-2 mt-2">
-                              {msg.visionVerified && (
+                              {msg.content.startsWith('Generated with') && msg.content.includes('vision') && (
                                 <span className="inline-flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-400/10 rounded-full px-2.5 py-1">
                                   <Eye className="h-3 w-3" /> Vision-verified
                                 </span>
                               )}
-                              {msg.bestEffort && (
-                                <span className="inline-flex items-center gap-1.5 text-[10px] text-yellow-400 bg-yellow-400/10 rounded-full px-2.5 py-1">
-                                  Best effort
-                                </span>
-                              )}
                             </div>
-
-                            {msg.warning && (
-                              <div className="mt-2 text-[10px] text-yellow-400 bg-yellow-500/10 rounded-md px-2 py-1.5">
-                                {msg.warning}
-                              </div>
-                            )}
                           </div>
                           )
                         )
                       ))}
                       {isGenerating && (
                         <StreamingMessage
-                          reasoning={streamReasoning}
                           steps={messages.length > 0 && messages[messages.length - 1].role === 'assistant'
                             ? messages[messages.length - 1].steps
                             : undefined}
@@ -532,7 +634,6 @@ export default function App() {
                   </button>
                 </ResizableHandle>
 
-                {/* Preview Panel */}
                 <ResizablePanel
                   panelRef={previewPanelRef}
                   collapsible
@@ -568,7 +669,6 @@ export default function App() {
                   </button>
                 </ResizableHandle>
 
-                {/* Right Panel */}
                 <ResizablePanel
                   panelRef={rightPanelRef}
                   collapsible
@@ -589,13 +689,10 @@ export default function App() {
                       <span className="text-xs font-medium text-adam-text-tertiary uppercase tracking-wider">Inspect</span>
                     </div>
                     <div className="flex-1 overflow-y-auto">
-                      {/* Inspection */}
                       {inspection && <InspectionPanel inspection={inspection} />}
 
-                      {/* Snapshots */}
                       {Object.keys(snapshots).length > 0 && <SnapshotGallery snapshots={snapshots} />}
 
-                      {/* Dimensional Views */}
                       {Object.keys(dimViews).length > 0 && (
                         <div className="p-4 border-b border-adam-neutral-700">
                           <h3 className="text-xs font-semibold text-adam-text-tertiary uppercase tracking-wider mb-3">Dimensional Views</h3>
@@ -603,7 +700,6 @@ export default function App() {
                         </div>
                       )}
 
-                      {/* Parameters */}
                       {parameters.length > 0 && (
                         <div className="p-4 border-b border-adam-neutral-700">
                           <div className="flex items-center justify-between mb-3">
@@ -624,7 +720,6 @@ export default function App() {
                         </div>
                       )}
 
-                      {/* Export */}
                       <ExportSection
                         stlBase64={stlBase64}
                         stepBase64={stepBase64}
@@ -632,10 +727,8 @@ export default function App() {
                         setExportFilename={setExportFilename}
                       />
 
-                      {/* Code */}
                       {currentCode && <CodeSection code={currentCode} />}
 
-                      {/* Empty State */}
                       {parameters.length === 0 && !currentCode && (
                         <div className="flex-1 flex items-center justify-center p-6">
                           <div className="text-center">

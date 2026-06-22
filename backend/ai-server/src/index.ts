@@ -2,6 +2,9 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { handleGenerate, handleUpdateParams, handleListProviders } from './routes/generate';
+import { router as authRouter } from './routes/auth.routes';
+import { router as chatRouter } from './routes/chat.routes';
+import { router as modelsRouter } from './routes/models.routes';
 import { config } from './config';
 
 const app = express();
@@ -14,6 +17,11 @@ app.get('/api/health', (_req, res) => {
 app.get('/api/providers', handleListProviders);
 app.post('/api/generate', handleGenerate);
 app.post('/api/update-params', handleUpdateParams);
+
+// Auth + chat + models
+app.use('/api/auth', authRouter);
+app.use('/api/chat', chatRouter);
+app.use('/api/models', modelsRouter);
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(config.port, () => {

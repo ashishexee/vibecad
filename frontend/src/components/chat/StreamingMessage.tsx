@@ -3,17 +3,16 @@ import { WorkflowTimeline } from './WorkflowTimeline';
 import type { WorkflowStep } from '@/types';
 
 interface StreamingMessageProps {
-  reasoning: string;
   steps?: WorkflowStep[];
 }
 
-export function StreamingMessage({ reasoning, steps }: StreamingMessageProps) {
+export function StreamingMessage({ steps }: StreamingMessageProps) {
   const hasSteps = steps && steps.length > 0;
 
   return (
     <div className="bg-adam-background-1 rounded-xl p-3 text-sm">
       {hasSteps ? (
-        <WorkflowTimeline steps={steps!} reasoning={reasoning || undefined} />
+        <WorkflowTimeline steps={steps} />
       ) : (
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-adam-blue/15">
@@ -29,16 +28,6 @@ export function StreamingMessage({ reasoning, steps }: StreamingMessageProps) {
             <span className="w-1 h-1 bg-adam-blue rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
         </div>
-      )}
-      {!hasSteps && reasoning && (
-        <details open className="mt-2 ml-9">
-          <summary className="text-[10px] text-adam-text-tertiary cursor-pointer hover:text-adam-text-secondary transition-colors mb-1">
-            Thinking... ({reasoning.length} chars)
-          </summary>
-          <div className="text-[11px] text-adam-text-tertiary bg-adam-bg-dark rounded-lg p-2 leading-relaxed max-h-60 overflow-y-auto whitespace-pre-wrap font-mono">
-            {reasoning}
-          </div>
-        </details>
       )}
     </div>
   );

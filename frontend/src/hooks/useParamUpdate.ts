@@ -10,6 +10,10 @@ interface UseParamUpdateOptions {
   onStlBase64Update: (base64: string) => void;
   onRevokeUrl: (url: string) => void;
   onParametersUpdate: (params: Parameter[]) => void;
+  onSnapshotsUpdate?: (snapshots: Record<string, string>) => void;
+  onDimViewsUpdate?: (dimViews: Record<string, string>) => void;
+  onInspectionUpdate?: (inspection: any) => void;
+  getAuthHeaders: () => Record<string, string>;
 }
 
 export function useParamUpdate({
@@ -20,6 +24,10 @@ export function useParamUpdate({
   onStlBase64Update,
   onRevokeUrl,
   onParametersUpdate,
+  onSnapshotsUpdate,
+  onDimViewsUpdate,
+  onInspectionUpdate,
+  getAuthHeaders,
 }: UseParamUpdateOptions) {
   const [paramValues, setParamValues] = useState<Record<string, number>>({});
   const [isParamUpdating, setIsParamUpdating] = useState(false);
@@ -49,7 +57,7 @@ export function useParamUpdate({
       try {
         const res = await fetch(`${API_URL}/api/update-params`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
           body: JSON.stringify({ code: currentCode, params: newVals }),
         });
         const data = await res.json();
