@@ -1,4 +1,4 @@
-# CADQUERY API REFERENCE FOR VIBECAD
+# CADQUERY API REFERENCE FOR CHAMFER AI
 
 ## CORE CONCEPTS
 - CadQuery builds 3D models by creating a Workplane (2D sketch plane), drawing profiles, and extruding/revolving/lofting them into solids.

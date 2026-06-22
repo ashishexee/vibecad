@@ -1,15 +1,15 @@
-# VibeCAD Buildathon Demo Script
+# Chamfer AI Buildathon Demo Script
 ## June 22, 2025 — AI x 0G Track
 
 ---
 
 ## Elevator Pitch (30 seconds)
 
-"VibeCAD is the world's first AI-native CAD system that generates production-ready 3D models from a single sentence — running entirely inside a 0G Compute Trusted Execution Environment. No cloud subscriptions, no vendor lock-in, just prompt → parameters → manufacturing files in under 10 seconds."
+"Chamfer AI is the world's first AI-native CAD system that generates production-ready 3D models from a single sentence — running entirely inside a 0G Compute Trusted Execution Environment. No cloud subscriptions, no vendor lock-in, just prompt → parameters → manufacturing files in under 10 seconds."
 
 **Key differentiator vs existing tools:**
 - CADAM (competitor): 2-stage pipeline, requires 2 TEE calls, 20-30s latency, 60% first-shot success
-- VibeCAD: **1-stage pipeline**, 1 TEE call, **10-15s latency**, **100% first-shot success** with MiMo v2.5-pro
+- Chamfer AI: **1-stage pipeline**, 1 TEE call, **10-15s latency**, **100% first-shot success** with MiMo v2.5-pro
 - **10 curated few-shot examples** in prompt (vs CADAM's 2), enabling complex shapes: flanges, pulleys, bolts, shafts, enclosures
 
 ---
@@ -57,7 +57,7 @@
 - Explain: **regex parameter patching** + Docker re-execution
 - Show the updated dimensional views
 
-**Key talking point:** "This is what separates VibeCAD from every other AI CAD tool. The model isn't just a mesh — it's a living, parametric solid that engineers can iterate on."
+**Key talking point:** "This is what separates Chamfer AI from every other AI CAD tool. The model isn't just a mesh — it's a living, parametric solid that engineers can iterate on."
 
 ### 4. 0G TEE INTEGRATION — The "Why 0G" Moment (30s)
 
@@ -181,7 +181,7 @@ A: The CAD server runs in Docker with resource limits. The AI server is stateles
 
 ```bash
 # Start CAD server
-conda run -n vibecad-cad python backend/cad-server/src/main.py
+conda run -n chamfer-ai-cad python backend/cad-server/src/main.py
 
 # Start AI server
 cd backend/ai-server && npx tsx src/index.ts

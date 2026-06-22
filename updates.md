@@ -1,4 +1,4 @@
-# VibeCAD Update Log
+# Chamfer AI Update Log
 
 ## Buildathon Pre-Release (June 22, 2025)
 

@@ -1,7 +1,7 @@
 import { config } from '../config';
 
 /**
- * Test script for validating the VibeCAD AI pipeline with Groq models.
+ * Test script for validating the Chamfer AI pipeline with Groq models.
  * Run this to measure first-shot success rate before migrating to 0G Compute.
  * 
  * Usage: npx tsx src/scripts/test-groq.ts
@@ -62,7 +62,7 @@ async function testSinglePrompt(prompt: string): Promise<TestResult> {
 }
 
 async function runTests() {
-  console.log('=== VibeCAD Groq Test Suite ===\n');
+  console.log('=== Chamfer AI Groq Test Suite ===\n');
   console.log(`Testing ${TEST_PROMPTS.length} prompts...\n`);
   
   const results: TestResult[] = [];
