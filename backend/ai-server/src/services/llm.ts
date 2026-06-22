@@ -84,7 +84,9 @@ export interface ASTCheckResult {
 
 export async function fastSyntaxCheck(code: string): Promise<ASTCheckResult> {
   return new Promise((resolve) => {
-    const python = spawn('python3', ['-c', `import ast; ast.parse('''${code.replace(/'''/g, "'''").replace(/\\/g, '\\\\')}''')`], {
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    const escapedCode = code.replace(/'''/g, "\\'''").replace(/\\/g, '\\\\');
+    const python = spawn(pythonCmd, ['-c', `import ast; ast.parse('''${escapedCode}''')`], {
       timeout: 5000,
     });
     
@@ -95,7 +97,6 @@ export async function fastSyntaxCheck(code: string): Promise<ASTCheckResult> {
       if (code === 0) {
         resolve({ valid: true });
       } else {
-        // Extract the actual error message from stderr
         const errorMatch = stderr.match(/SyntaxError:\s*(.*)/);
         const errorMsg = errorMatch ? errorMatch[1] : (stderr.slice(0, 200) || 'Unknown syntax error');
         resolve({ valid: false, error: `Syntax error: ${errorMsg}` });
@@ -103,7 +104,12 @@ export async function fastSyntaxCheck(code: string): Promise<ASTCheckResult> {
     });
     
     python.on('error', (err) => {
-      resolve({ valid: false, error: `Failed to run Python AST check: ${err.message}` });
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        console.warn('[AST] Python not found — skipping syntax check (Docker will catch errors)');
+        resolve({ valid: true });
+      } else {
+        resolve({ valid: false, error: `Failed to run Python AST check: ${err.message}` });
+      }
     });
   });
 }
