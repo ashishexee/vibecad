@@ -1,4 +1,6 @@
-import { Plus, PanelLeft, PanelLeftClose } from 'lucide-react';
+import { useState } from 'react';
+import { Plus } from 'lucide-react';
+import { NutIcon } from '@/components/hardware/NutIcon';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -7,6 +9,15 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onNewTask, onToggleSidebar }: SidebarProps) {
+  const [isRotating, setIsRotating] = useState(false);
+
+  const handleToggle = () => {
+    if (!onToggleSidebar) return;
+    setIsRotating(true);
+    onToggleSidebar();
+    window.setTimeout(() => setIsRotating(false), 300);
+  };
+
   return (
     <div className={`${isOpen ? 'w-64' : 'w-16'} flex h-full flex-shrink-0 flex-col bg-adam-bg-dark transition-all duration-300 ease-in-out`}>
       <div className="p-4 flex items-center justify-between">
@@ -18,20 +29,20 @@ export function Sidebar({ isOpen, onNewTask, onToggleSidebar }: SidebarProps) {
               </span>
             </button>
             <button
-              onClick={onToggleSidebar}
+              onClick={handleToggle}
               title="Collapse sidebar"
               className="h-7 w-7 flex items-center justify-center rounded-md text-adam-text-tertiary hover:text-adam-text-primary hover:bg-adam-neutral-800 transition-colors"
             >
-              <PanelLeftClose className="h-4 w-4" />
+              <NutIcon className="h-4 w-4" spinning={isRotating} />
             </button>
           </>
         ) : (
           <button
-            onClick={onToggleSidebar}
+            onClick={handleToggle}
             title="Expand sidebar"
             className="h-7 w-7 flex items-center justify-center rounded-md text-adam-text-tertiary hover:text-adam-text-primary hover:bg-adam-neutral-800 transition-colors"
           >
-            <PanelLeft className="h-4 w-4" />
+            <NutIcon className="h-4 w-4" spinning={isRotating} />
           </button>
         )}
       </div>

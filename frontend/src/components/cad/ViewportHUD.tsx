@@ -42,8 +42,8 @@ export function ViewportHUD({
     <>
       {/* ─── Top-right: ViewCube + XYZ legend ─── */}
       <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 pointer-events-none">
-        <div className="glass-hud pointer-events-auto select-none">
-          <svg viewBox="0 0 80 108" width="56" height="76" className="block">
+        <div className="glass-hud pointer-events-auto select-none p-1">
+          <svg viewBox="0 0 80 108" width="84" height="114" className="block">
             {FACE_DEFS.map(f => {
               const isActive = activeView === f.id;
               return (
@@ -73,36 +73,36 @@ export function ViewportHUD({
         </div>
 
         {/* XYZ legend */}
-        <div className="glass-hud pointer-events-auto px-2 py-1.5 flex flex-col gap-0.5 select-none">
-          <div className="flex items-center gap-2 text-[10px] font-semibold text-adam-text-primary">
-            <span className="inline-block w-2.5 h-0.5 rounded-full" style={{ background: '#E34D4D' }} />
+        <div className="glass-hud pointer-events-auto px-3 py-2.5 flex flex-col gap-1 select-none">
+          <div className="flex items-center gap-2.5 text-xs font-semibold text-adam-text-primary">
+            <span className="inline-block w-3 h-0.5 rounded-full" style={{ background: '#E34D4D' }} />
             <span style={{ color: '#E34D4D' }}>X</span>
           </div>
-          <div className="flex items-center gap-2 text-[10px] font-semibold text-adam-text-primary">
-            <span className="inline-block w-2.5 h-0.5 rounded-full" style={{ background: '#7AB838' }} />
+          <div className="flex items-center gap-2.5 text-xs font-semibold text-adam-text-primary">
+            <span className="inline-block w-3 h-0.5 rounded-full" style={{ background: '#7AB838' }} />
             <span style={{ color: '#7AB838' }}>Y</span>
           </div>
-          <div className="flex items-center gap-2 text-[10px] font-semibold text-adam-text-primary">
-            <span className="inline-block w-2.5 h-0.5 rounded-full" style={{ background: '#4D8FE3' }} />
+          <div className="flex items-center gap-2.5 text-xs font-semibold text-adam-text-primary">
+            <span className="inline-block w-3 h-0.5 rounded-full" style={{ background: '#4D8FE3' }} />
             <span style={{ color: '#4D8FE3' }}>Z</span>
           </div>
         </div>
       </div>
 
       {/* ─── Bottom-right: toolbar ─── */}
-      <div className="absolute bottom-3 right-3 flex flex-col gap-1.5 pointer-events-none">
+      <div className="absolute bottom-3 right-3 flex flex-col gap-2 pointer-events-none">
         <ToolbarButton onClick={onFit} disabled={!hasModel} title="Fit to view">
-          <Maximize2 className="h-3.5 w-3.5" />
+          <Maximize2 className="h-5 w-5" />
         </ToolbarButton>
         <ToolbarButton onClick={onReset} title="Reset camera">
-          <RotateCcw className="h-3.5 w-3.5" />
+          <RotateCcw className="h-5 w-5" />
         </ToolbarButton>
         <ToolbarButton
           onClick={onToggleAxes}
           active={axesVisible}
           title={axesVisible ? 'Hide grid + axes' : 'Show grid + axes'}
         >
-          {axesVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          {axesVisible ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
         </ToolbarButton>
       </div>
     </>
