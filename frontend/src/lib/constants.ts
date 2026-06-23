@@ -1,6 +1,28 @@
 import type { Provider } from '@/types';
 
-export const API_URL = '';
+export const API_URL = import.meta.env.VITE_API_URL || '';
+
+// ── Auth ──
+export const AUTH_ENDPOINTS = {
+  VERIFY: '/api/auth/verify',
+} as const;
+
+// ── Chat persistence ──
+export const CHAT_ENDPOINTS = {
+  SAVE: '/api/chat/save',
+  SESSIONS: '/api/chat/sessions',
+  HISTORY: (sessionId: string) => `/api/chat/history/${sessionId}`,
+} as const;
+
+// ── Model storage (0G) ──
+export const MODEL_ENDPOINTS = {
+  SAVE: '/api/models/save',
+  UPLOAD_0G: '/api/models/upload-to-0g',
+  LATEST_FOR_SESSION: (sessionId: string) => `/api/models/session/${sessionId}/latest`,
+  LIST: '/api/models',
+  GET: (id: string) => `/api/models/${id}`,
+  DELETE: (id: string) => `/api/models/${id}`,
+} as const;
 
 export const PROVIDERS: Provider[] = [
   { id: 'mimo-pro', name: 'MiMo 2.5 Pro', desc: 'Primary · 1T (42B active) · 10M TPM' },
