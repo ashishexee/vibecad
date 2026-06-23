@@ -86,6 +86,10 @@ async function insertMessages(sessionId: string, messages: ChatMessageData[]) {
     throw new Error(`insertMessages failed: ${error.message}`);
   }
   console.log(`[DB] inserted ${rows.length} messages`);
+  return {
+    count: rows.length,
+    latestMessageOrder: rows.length > 0 ? rows.length - 1 : null,
+  };
 }
 
 export async function saveChatSession(
@@ -93,7 +97,7 @@ export async function saveChatSession(
   messages: ChatMessageData[],
   parameters?: Parameter[],
   sessionId?: string,
-): Promise<string | null> {
+): Promise<{ sessionId: string; latestMessageOrder: number | null } | null> {
   const title = messages.find(m => m.role === 'user')?.content?.slice(0, 60) || 'New Creation';
 
   if (sessionId) {
@@ -107,8 +111,8 @@ export async function saveChatSession(
         updated_at: new Date().toISOString(),
       })
       .eq('id', sessionId);
-    await insertMessages(sessionId, messages);
-    return sessionId;
+    const inserted = await insertMessages(sessionId, messages);
+    return { sessionId, latestMessageOrder: inserted.latestMessageOrder };
   }
 
   // Create new session
@@ -126,8 +130,8 @@ export async function saveChatSession(
     console.error('[DB] saveChatSession error:', error.message);
     return null;
   }
-  await insertMessages(data.id, messages);
-  return data.id;
+  const inserted = await insertMessages(data.id, messages);
+  return { sessionId: data.id, latestMessageOrder: inserted.latestMessageOrder };
 }
 
 export async function getChatSessions(walletAddress: string) {
@@ -221,14 +225,17 @@ export async function saveModelMetadata(
     rootHashStep?: string;
     rootHashGlb?: string;
     parameters?: Parameter[];
+    inspection?: Record<string, unknown>;
     boundingBox?: { size?: number[] };
     chatSessionId?: string;
     messageOrder?: number;
+    uploadStatus?: 'pending' | 'complete' | 'failed';
+    uploadError?: string | null;
   },
 ) {
   const { data, error } = await supabase
     .from('saved_models')
-    .insert({
+    .upsert({
       user_wallet: walletAddress,
       name: model.name,
       root_hash_code: model.rootHashCode || null,
@@ -236,11 +243,17 @@ export async function saveModelMetadata(
       root_hash_step: model.rootHashStep || null,
       root_hash_glb: model.rootHashGlb || null,
       parameters: model.parameters || null,
+      inspection: model.inspection || null,
       bounding_box: model.boundingBox || null,
       chat_session_id: model.chatSessionId || null,
       message_order: model.messageOrder ?? null,
+      upload_status: model.uploadStatus || 'complete',
+      upload_error: model.uploadError || null,
+      updated_at: new Date().toISOString(),
+    }, {
+      onConflict: 'chat_session_id,message_order',
     })
-    .select('id, name, created_at')
+    .select('id, name, created_at, upload_status')
     .single();
 
   if (error) {
@@ -250,10 +263,161 @@ export async function saveModelMetadata(
   return data;
 }
 
+export async function markModelUploadPending(
+  walletAddress: string,
+  model: {
+    name: string;
+    chatSessionId: string;
+    messageOrder: number;
+    parameters?: Parameter[];
+    inspection?: Record<string, unknown>;
+    boundingBox?: { size?: number[] };
+  },
+) {
+  const existingQuery = await supabase
+    .from('saved_models')
+    .select('id, upload_status, root_hash_code')
+    .eq('chat_session_id', model.chatSessionId)
+    .eq('message_order', model.messageOrder)
+    .eq('user_wallet', walletAddress)
+    .maybeSingle();
+
+  const basePayload = {
+    user_wallet: walletAddress,
+    name: model.name,
+    chat_session_id: model.chatSessionId,
+    message_order: model.messageOrder,
+    parameters: model.parameters || null,
+    inspection: model.inspection || null,
+    bounding_box: model.boundingBox || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existingQuery.data) {
+    const { data: updated, error: updateError } = await supabase
+      .from('saved_models')
+      .update({
+        ...basePayload,
+        upload_error: null,
+      })
+      .eq('id', existingQuery.data.id)
+      .select('id, name, created_at, upload_status')
+      .single();
+
+    if (updateError) {
+      console.error('[DB] markModelUploadPending update error:', updateError.message);
+      return null;
+    }
+    return updated;
+  }
+
+  const { data, error } = await supabase
+    .from('saved_models')
+    .insert({
+      ...basePayload,
+      upload_status: 'pending',
+      upload_error: null,
+    })
+    .select('id, name, created_at, upload_status')
+    .single();
+
+  if (error) {
+    console.error('[DB] markModelUploadPending insert error:', error.message);
+    return null;
+  }
+  return data;
+}
+
+export async function markModelUploadComplete(
+  walletAddress: string,
+  model: {
+    name: string;
+    chatSessionId: string;
+    messageOrder: number;
+    rootHashCode: string;
+    rootHashStl?: string;
+    rootHashStep?: string;
+    rootHashGlb?: string;
+    parameters?: Parameter[];
+    inspection?: Record<string, unknown>;
+    boundingBox?: { size?: number[] };
+  },
+) {
+  return saveModelMetadata(walletAddress, {
+    ...model,
+    uploadStatus: 'complete',
+    uploadError: null,
+  });
+}
+
+export async function markModelUploadFailed(
+  walletAddress: string,
+  model: {
+    name: string;
+    chatSessionId: string;
+    messageOrder: number;
+    parameters?: Parameter[];
+    inspection?: Record<string, unknown>;
+    boundingBox?: { size?: number[] };
+    error: string;
+  },
+) {
+  const { data: existing } = await supabase
+    .from('saved_models')
+    .select('id, upload_status, root_hash_code')
+    .eq('chat_session_id', model.chatSessionId)
+    .eq('message_order', model.messageOrder)
+    .eq('user_wallet', walletAddress)
+    .maybeSingle();
+
+  const nextStatus = existing?.root_hash_code ? existing.upload_status : 'failed';
+
+  const { data, error } = await supabase
+    .from('saved_models')
+    .update({
+      name: model.name,
+      parameters: model.parameters || null,
+      inspection: model.inspection || null,
+      bounding_box: model.boundingBox || null,
+      upload_status: nextStatus,
+      upload_error: model.error,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('chat_session_id', model.chatSessionId)
+    .eq('message_order', model.messageOrder)
+    .eq('user_wallet', walletAddress)
+    .select('id, name, created_at, upload_status')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[DB] markModelUploadFailed error:', error.message);
+    return null;
+  }
+  return data;
+}
+
+export async function getLatestModelForSession(sessionId: string, walletAddress: string) {
+  const { data, error } = await supabase
+    .from('saved_models')
+    .select('*')
+    .eq('chat_session_id', sessionId)
+    .eq('user_wallet', walletAddress)
+    .eq('upload_status', 'complete')
+    .order('message_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[DB] getLatestModelForSession error:', error.message);
+    return null;
+  }
+  return data;
+}
+
 export async function getSavedModels(walletAddress: string) {
   const { data, error } = await supabase
     .from('saved_models')
-    .select('id, name, root_hash_code, root_hash_stl, root_hash_step, root_hash_glb, parameters, bounding_box, chat_session_id, message_order, created_at')
+    .select('id, name, root_hash_code, root_hash_stl, root_hash_step, root_hash_glb, parameters, inspection, bounding_box, chat_session_id, message_order, upload_status, upload_error, created_at, updated_at')
     .eq('user_wallet', walletAddress)
     .order('created_at', { ascending: false })
     .limit(20);

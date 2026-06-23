@@ -101,3 +101,10 @@ export interface SavedModel {
   bounding_box?: { size?: number[] };
   created_at: string;
 }
+
+export interface RootHashData {
+  code?: string;
+  stl?: string;
+  step?: string;
+  glb?: string;
+}

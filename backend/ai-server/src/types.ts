@@ -34,14 +34,17 @@ export interface ChatMessage {
 export interface SavedModel {
   id: string;
   name: string;
+  root_hash_code?: string;
   root_hash_stl?: string;
   root_hash_step?: string;
   root_hash_glb?: string;
-  root_hash_snapshots?: string;
-  root_hash_inspection?: string;
   parameters?: Parameter[];
   inspection?: Record<string, unknown>;
   bounding_box?: { size?: number[] };
   chat_session_id?: string;
+  message_order?: number;
+  upload_status?: 'pending' | 'complete' | 'failed';
+  upload_error?: string;
   created_at: string;
+  updated_at?: string;
 }

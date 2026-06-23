@@ -18,6 +18,7 @@ export const CHAT_ENDPOINTS = {
 export const MODEL_ENDPOINTS = {
   SAVE: '/api/models/save',
   UPLOAD_0G: '/api/models/upload-to-0g',
+  LATEST_FOR_SESSION: (sessionId: string) => `/api/models/session/${sessionId}/latest`,
   LIST: '/api/models',
   GET: (id: string) => `/api/models/${id}`,
   DELETE: (id: string) => `/api/models/${id}`,

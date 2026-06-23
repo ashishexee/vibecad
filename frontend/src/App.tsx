@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Eye, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen } from 'lucide-react';
+import { Eye, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen, Save } from 'lucide-react';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
 import type { Parameter, Message, InspectionData, ClarificationOption, WorkflowStep, SessionListItem, Specification } from '@/types';
-import { API_URL, CHAT_ENDPOINTS } from '@/lib/constants';
+import { API_URL, CHAT_ENDPOINTS, MODEL_ENDPOINTS } from '@/lib/constants';
 import { useAuth } from '@/hooks/useAuth';
 // Components
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -13,6 +13,8 @@ import { ClarificationMessage } from '@/components/chat/ClarificationMessage';
 import { ClarificationAnswers } from '@/components/chat/ClarificationAnswers';
 import { WorkflowTimeline } from '@/components/chat/WorkflowTimeline';
 import { DimViews } from '@/components/chat/DimViews';
+import { RootHashes } from '@/components/chat/RootHashes';
+import type { RootHashData } from '@/types';
 import { ParameterPanel } from '@/components/cad/ParameterPanel';
 import { ExportSection } from '@/components/cad/ExportSection';
 import { CodeSection } from '@/components/cad/CodeSection';
@@ -51,6 +53,13 @@ export default function App() {
   const [stlObjectUrl, setStlObjectUrl] = useState<string | null>(null);
   const [stepBase64, setStepBase64] = useState<string | undefined>(undefined);
   const [stlBase64, setStlBase64] = useState<string | undefined>(undefined);
+  const [glbBase64, setGlbBase64] = useState<string | undefined>(undefined);
+  const [latestMessageOrder, setLatestMessageOrder] = useState<number | null>(null);
+  const [hasUnsavedParamIteration, setHasUnsavedParamIteration] = useState(false);
+  const [isStoringIteration, setIsStoringIteration] = useState(false);
+  const [modelStorageStatus, setModelStorageStatus] = useState<string | null>(null);
+  const [rootHashes, setRootHashes] = useState<RootHashData | null>(null);
+  const [rootHashesLoading, setRootHashesLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [streamReasoning, setStreamReasoning] = useState('');
@@ -96,12 +105,20 @@ export default function App() {
     stlObjectUrl,
     onStlUpdate: setStlUrl,
     onStepUpdate: setStepBase64,
+    onGlbBase64Update: setGlbBase64,
     onStlBase64Update: setStlBase64,
     onRevokeUrl: URL.revokeObjectURL,
     onParametersUpdate: setParameters,
     onSnapshotsUpdate: setSnapshots,
     onDimViewsUpdate: setDimViews,
     onInspectionUpdate: setInspection,
+    onUpdateComplete: (data) => {
+      if (data.stlBase64) setStlBase64(data.stlBase64);
+      if (data.stepBase64) setStepBase64(data.stepBase64);
+      if (data.glbBase64) setGlbBase64(data.glbBase64);
+      setHasUnsavedParamIteration(true);
+      setModelStorageStatus(null);
+    },
     getAuthHeaders: authHeaders,
   });
 
@@ -125,6 +142,91 @@ export default function App() {
       body: JSON.stringify({ sessionId: chatSessionId, messages: allMsgs, parameters }),
     }).catch(() => {});
   }, [messages, chatSessionId, parameters, auth.isConnected, authHeaders]);
+
+  const uploadModelTo0G = useCallback(async (model: {
+    sessionId: string;
+    messageOrder: number;
+    name: string;
+    code: string;
+    stlBase64?: string;
+    stepBase64?: string;
+    glbBase64?: string;
+    parameters?: Parameter[];
+    inspection?: InspectionData | null;
+    boundingBox?: { size?: number[] };
+  }) => {
+    console.log(`[0G] Frontend: upload initiated for session ${model.sessionId} message ${model.messageOrder}`);
+    setRootHashesLoading(true);
+    setRootHashes(null);
+
+    const res = await fetch(`${API_URL}${MODEL_ENDPOINTS.UPLOAD_0G}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({
+        chatSessionId: model.sessionId,
+        messageOrder: model.messageOrder,
+        name: model.name,
+        code: model.code,
+        stlBase64: model.stlBase64,
+        stepBase64: model.stepBase64,
+        glbBase64: model.glbBase64,
+        parameters: model.parameters,
+        inspection: model.inspection,
+        boundingBox: model.boundingBox,
+      }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      console.error(`[0G] Frontend: upload failed — ${data.error || res.status}`);
+      setRootHashesLoading(false);
+      throw new Error(data.error || `0G upload request failed: ${res.status}`);
+    }
+
+    const data = await res.json();
+    if (data.rootHashes) {
+      console.log(`[0G] Frontend: upload successful, hashes:`, data.rootHashes);
+      setRootHashes(data.rootHashes);
+    }
+    setRootHashesLoading(false);
+    return data;
+  }, [authHeaders]);
+
+  const storeCurrentIteration = useCallback(async () => {
+    if (!chatSessionId || latestMessageOrder === null || !currentCode) return;
+    setIsStoringIteration(true);
+    setModelStorageStatus('Starting 0G upload...');
+    try {
+      await uploadModelTo0G({
+        sessionId: chatSessionId,
+        messageOrder: latestMessageOrder,
+        name: `Iteration ${latestMessageOrder + 1}`,
+        code: currentCode,
+        stlBase64,
+        stepBase64,
+        glbBase64,
+        parameters,
+        inspection,
+        boundingBox: inspection?.bounding_box,
+      });
+      setHasUnsavedParamIteration(false);
+      setModelStorageStatus('0G storage complete');
+    } catch (err) {
+      setModelStorageStatus(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsStoringIteration(false);
+    }
+  }, [
+    chatSessionId,
+    latestMessageOrder,
+    currentCode,
+    stlBase64,
+    stepBase64,
+    glbBase64,
+    parameters,
+    inspection,
+    uploadModelTo0G,
+  ]);
 
   const handleLoadSession = useCallback(async (sessionId: string) => {
     if (isGenerating) {
@@ -155,6 +257,9 @@ export default function App() {
       setChatSessionId(session.id);
       setMessages(session.messages || []);
       setCurrentCode('');
+      setLatestMessageOrder(null);
+      setHasUnsavedParamIteration(false);
+      setModelStorageStatus(null);
       setParameters(session.parameters || []);
       if (session.parameters?.length) {
         const vals: Record<string, number> = {};
@@ -169,12 +274,62 @@ export default function App() {
       setStlUrl(null);
       setStlBase64(undefined);
       setStepBase64(undefined);
+      setGlbBase64(undefined);
+      setRootHashes(null);
+      setRootHashesLoading(false);
+
+      try {
+        const modelRes = await fetch(`${API_URL}${MODEL_ENDPOINTS.LATEST_FOR_SESSION(session.id)}`, {
+          headers: { 'Authorization': `Bearer ${auth.address || ''}` },
+        });
+        if (modelRes.ok) {
+          const modelData = await modelRes.json();
+          const model = modelData.model;
+
+          setLatestMessageOrder(typeof model.messageOrder === 'number' ? model.messageOrder : null);
+          setCurrentCode(model.code || '');
+          setStlBase64(model.stlBase64);
+          setStepBase64(model.stepBase64);
+          setGlbBase64(model.glbBase64);
+          if (model.rootHashes) {
+            console.log('[0G] Frontend: restored root hashes from Supabase:', model.rootHashes);
+            setRootHashes(model.rootHashes);
+            setRootHashesLoading(false);
+          } else {
+            setRootHashes(null);
+          }
+          if (model.parameters?.length) {
+            setParameters(model.parameters);
+            const modelVals: Record<string, number> = {};
+            model.parameters.forEach((p: Parameter) => { modelVals[p.name] = p.default; });
+            setParamValues(modelVals);
+          }
+          if (model.inspection) setInspection(model.inspection);
+
+          if (model.stlBase64) {
+            const bytes = Uint8Array.from(atob(model.stlBase64), c => c.charCodeAt(0));
+            const blob = new Blob([bytes], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            if (stlObjectUrl) URL.revokeObjectURL(stlObjectUrl);
+            setStlObjectUrl(url);
+            setStlUrl(url);
+          }
+        }
+      } catch (err) {
+        console.error('[0G] latest model restore failed:', err);
+      }
     } catch (err) {
       console.error('[LOAD] error:', err);
     }
-  }, [isGenerating, chatSessionId, messages, auth.isConnected, auth.address, saveCurrentSession, setParamValues]);
+  }, [isGenerating, chatSessionId, messages, auth.isConnected, auth.address, saveCurrentSession, setParamValues, stlObjectUrl]);
 
-  // Fetch sessions on connect and auto-load latest
+  // Keep latest handleLoadSession in a ref to avoid stale closure
+  const handleLoadSessionRef = useRef(handleLoadSession);
+  useEffect(() => {
+    handleLoadSessionRef.current = handleLoadSession;
+  }, [handleLoadSession]);
+
+  // Fetch sessions on connect and auto-load latest (runs once per wallet connect)
   useEffect(() => {
     if (!auth.isConnected || !auth.address) return;
     fetch(`${API_URL}${CHAT_ENDPOINTS.SESSIONS}`, {
@@ -182,10 +337,10 @@ export default function App() {
     }).then(r => r.json()).then(d => {
       setChatSessions(d.sessions || []);
       if (d.sessions?.length > 0) {
-        handleLoadSession(d.sessions[0].id);
+        handleLoadSessionRef.current(d.sessions[0].id);
       }
     }).catch(() => {});
-  }, [auth.isConnected, auth.address, handleLoadSession]);
+  }, [auth.isConnected, auth.address]);
 
   // Sync profile to Supabase on wallet connect
   useEffect(() => {
@@ -398,6 +553,8 @@ export default function App() {
         }
         setStlBase64(finalData.stlBase64);
         setStepBase64(finalData.stepBase64);
+        setGlbBase64(finalData.glbBase64);
+        setHasUnsavedParamIteration(false);
         if (finalData.stlBase64 && finalData.hasStl) {
           const bytes = Uint8Array.from(atob(finalData.stlBase64), c => c.charCodeAt(0));
           const blob = new Blob([bytes], { type: 'application/octet-stream' });
@@ -434,7 +591,31 @@ export default function App() {
             });
             if (saveRes.ok) {
               const saveData = await saveRes.json();
+              const savedSessionId = saveData.sessionId || chatSessionId;
+              const savedMessageOrder = typeof saveData.latestMessageOrder === 'number'
+                ? saveData.latestMessageOrder
+                : null;
+
               if (saveData.sessionId) setChatSessionId(saveData.sessionId);
+              setLatestMessageOrder(savedMessageOrder);
+
+              if (savedSessionId && savedMessageOrder !== null && finalData.code) {
+                setModelStorageStatus('Starting 0G upload...');
+                uploadModelTo0G({
+                  sessionId: savedSessionId,
+                  messageOrder: savedMessageOrder,
+                  name: `Iteration ${savedMessageOrder + 1}`,
+                  code: finalData.code,
+                  stlBase64: finalData.stlBase64,
+                  stepBase64: finalData.stepBase64,
+                  glbBase64: finalData.glbBase64,
+                  parameters: finalData.parameters,
+                  inspection: finalData.inspection,
+                  boundingBox: finalData.inspection?.bounding_box,
+                })
+                  .then(() => setModelStorageStatus('0G storage complete'))
+                  .catch(err => setModelStorageStatus(err instanceof Error ? err.message : String(err)));
+              }
             }
           } catch {}
         }
@@ -459,7 +640,7 @@ export default function App() {
       reasoningBufferRef.current = '';
       if (reasoningRafRef.current) { cancelAnimationFrame(reasoningRafRef.current); reasoningRafRef.current = null; }
     }
-  }, [prompt, isGenerating, provider, messages, stlObjectUrl, reasoningEnabled, setParamValues, auth.isConnected, authHeaders, chatSessionId]);
+  }, [prompt, isGenerating, provider, messages, stlObjectUrl, reasoningEnabled, setParamValues, auth.isConnected, authHeaders, chatSessionId, uploadModelTo0G]);
 
   const handleClarificationSubmit = useCallback((answers: string, answerList: { question: string; answer: string }[]) => {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
@@ -481,6 +662,7 @@ export default function App() {
     setStlUrl(null);
     setStlBase64(undefined);
     setStepBase64(undefined);
+    setGlbBase64(undefined);
     if (stlObjectUrl) URL.revokeObjectURL(stlObjectUrl);
     setStlObjectUrl(null);
     setPrompt('');
@@ -490,6 +672,11 @@ export default function App() {
     setDimViews({});
     setInspection(null);
     setChatSessionId(null);
+    setLatestMessageOrder(null);
+    setHasUnsavedParamIteration(false);
+    setModelStorageStatus(null);
+    setRootHashes(null);
+    setRootHashesLoading(false);
     resetParams();
   }, [messages, chatSessionId, auth.isConnected, stlObjectUrl, saveCurrentSession, resetParams]);
 
@@ -587,6 +774,10 @@ export default function App() {
 
                             {msg.dimViews && Object.keys(msg.dimViews).length > 0 && (
                               <DimViews dimViews={msg.dimViews} />
+                            )}
+
+                            {msg.role === 'assistant' && i === messages.length - 1 && (
+                              <RootHashes hashes={rootHashes} loading={rootHashesLoading} />
                             )}
 
                             <div className="flex flex-wrap gap-2 mt-2">
@@ -715,6 +906,22 @@ export default function App() {
                           {paramError && (
                             <div className="mt-2 text-[10px] text-red-400 bg-red-500/10 rounded-md px-2 py-1.5">
                               {paramError}
+                            </div>
+                          )}
+                          {hasUnsavedParamIteration && currentCode && (
+                            <button
+                              type="button"
+                              onClick={storeCurrentIteration}
+                              disabled={isStoringIteration || !chatSessionId || latestMessageOrder === null}
+                              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-adam-blue/50 bg-adam-blue/10 px-3 py-2 text-xs font-medium text-adam-blue transition-colors hover:bg-adam-blue/20 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <Save className="h-3.5 w-3.5" />
+                              {isStoringIteration ? 'Starting 0G storage...' : 'Store this iteration'}
+                            </button>
+                          )}
+                          {modelStorageStatus && (
+                            <div className="mt-2 text-[10px] text-adam-text-tertiary bg-adam-neutral-800/60 rounded-md px-2 py-1.5">
+                              {modelStorageStatus}
                             </div>
                           )}
                         </div>

@@ -42,16 +42,21 @@ CREATE TABLE chat_messages (
 CREATE TABLE IF NOT EXISTS saved_models (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_wallet TEXT NOT NULL REFERENCES profiles(wallet_address),
+  chat_session_id UUID NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+  message_order INT NOT NULL,
   name TEXT NOT NULL,
   root_hash_code TEXT,
   root_hash_stl TEXT,
   root_hash_step TEXT,
   root_hash_glb TEXT,
   parameters JSONB,
+  inspection JSONB,
   bounding_box JSONB,
-  chat_session_id UUID REFERENCES chat_sessions(id),
-  message_order INT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  upload_status TEXT NOT NULL DEFAULT 'pending' CHECK (upload_status IN ('pending', 'complete', 'failed')),
+  upload_error TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(chat_session_id, message_order)
 );
 
 -- === Indexes ===
@@ -59,7 +64,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_sessions_wallet ON chat_sessions(user_wallet
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id, message_order);
 CREATE INDEX IF NOT EXISTS idx_saved_models_wallet ON saved_models(user_wallet);
-CREATE INDEX IF NOT EXISTS idx_saved_models_session ON saved_models(chat_session_id);
+CREATE INDEX IF NOT EXISTS idx_saved_models_session ON saved_models(chat_session_id, message_order DESC);
 
 -- === RLS ===
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;

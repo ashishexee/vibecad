@@ -7,12 +7,14 @@ interface UseParamUpdateOptions {
   stlObjectUrl: string | null;
   onStlUpdate: (url: string) => void;
   onStepUpdate: (base64: string) => void;
+  onGlbBase64Update?: (base64: string) => void;
   onStlBase64Update: (base64: string) => void;
   onRevokeUrl: (url: string) => void;
   onParametersUpdate: (params: Parameter[]) => void;
   onSnapshotsUpdate?: (snapshots: Record<string, string>) => void;
   onDimViewsUpdate?: (dimViews: Record<string, string>) => void;
   onInspectionUpdate?: (inspection: any) => void;
+  onUpdateComplete?: (data: any) => void;
   getAuthHeaders: () => Record<string, string>;
 }
 
@@ -21,12 +23,14 @@ export function useParamUpdate({
   stlObjectUrl,
   onStlUpdate,
   onStepUpdate,
+  onGlbBase64Update,
   onStlBase64Update,
   onRevokeUrl,
   onParametersUpdate,
   onSnapshotsUpdate,
   onDimViewsUpdate,
   onInspectionUpdate,
+  onUpdateComplete,
   getAuthHeaders,
 }: UseParamUpdateOptions) {
   const [paramValues, setParamValues] = useState<Record<string, number>>({});
@@ -77,6 +81,10 @@ export function useParamUpdate({
         }
 
         if (data.stepBase64) onStepUpdate(data.stepBase64);
+        if (data.glbBase64) onGlbBase64Update?.(data.glbBase64);
+        if (data.snapshots) onSnapshotsUpdate?.(data.snapshots);
+        if (data.dimViews) onDimViewsUpdate?.(data.dimViews);
+        if (data.inspection) onInspectionUpdate?.(data.inspection);
 
         if (data.parameters?.length) {
           onParametersUpdate(data.parameters);
@@ -88,6 +96,7 @@ export function useParamUpdate({
         }
 
         setParamUpdateKey(k => k + 1);
+        onUpdateComplete?.(data);
       } catch (e) {
         console.error('Param update failed:', e);
         setParamError(String(e));
@@ -95,7 +104,22 @@ export function useParamUpdate({
         setIsParamUpdating(false);
       }
     }, 300);
-  }, [currentCode, stlObjectUrl, updateParamValues, onStlUpdate, onStepUpdate, onStlBase64Update, onRevokeUrl, onParametersUpdate]);
+  }, [
+    currentCode,
+    stlObjectUrl,
+    updateParamValues,
+    onStlUpdate,
+    onStepUpdate,
+    onGlbBase64Update,
+    onStlBase64Update,
+    onRevokeUrl,
+    onParametersUpdate,
+    onSnapshotsUpdate,
+    onDimViewsUpdate,
+    onInspectionUpdate,
+    onUpdateComplete,
+    getAuthHeaders,
+  ]);
 
   const resetParams = useCallback(() => {
     updateParamValues({});

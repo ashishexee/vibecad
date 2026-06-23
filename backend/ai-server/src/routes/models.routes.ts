@@ -1,6 +1,15 @@
 import express from 'express';
 import { authMiddleware } from '../middleware/auth';
-import { saveModelMetadata, getSavedModels, getSavedModel, deleteSavedModel } from '../services/db';
+import {
+  saveModelMetadata,
+  getSavedModels,
+  getSavedModel,
+  deleteSavedModel,
+  markModelUploadPending,
+  markModelUploadComplete,
+  markModelUploadFailed,
+  getLatestModelForSession,
+} from '../services/db';
 import { uploadTo0G, fetchFrom0G } from '../services/zgStorage';
 
 export const router = express.Router();
@@ -8,44 +17,164 @@ export const router = express.Router();
 router.post('/upload-to-0g', authMiddleware, async (req, res) => {
   try {
     const walletAddress = (req as any).walletAddress;
-    const { chatSessionId, messageOrder, name, code, stlBase64, stepBase64, glbBase64, parameters, boundingBox } = req.body;
+    const {
+      chatSessionId,
+      messageOrder,
+      name,
+      code,
+      stlBase64,
+      stepBase64,
+      glbBase64,
+      parameters,
+      inspection,
+      boundingBox,
+    } = req.body;
 
     if (!chatSessionId || messageOrder === undefined || !code) {
       res.status(400).json({ error: 'chatSessionId, messageOrder, and code are required' });
       return;
     }
 
-    // Acknowledge receipt to avoid blocking frontend while async upload happens
-    res.json({ success: true, message: 'Upload to 0G started in background' });
+    const modelName = name || `Iteration ${Number(messageOrder) + 1}`;
+    const msgOrder = Number(messageOrder);
 
-    // Background upload
-    (async () => {
-      try {
-        console.log(`[0G] Starting background upload for session ${chatSessionId} message ${messageOrder}`);
-        const [rootHashCode, rootHashStl, rootHashStep, rootHashGlb] = await Promise.all([
-          uploadTo0G(code, false),
-          stlBase64 ? uploadTo0G(stlBase64, true) : Promise.resolve(undefined),
-          stepBase64 ? uploadTo0G(stepBase64, true) : Promise.resolve(undefined),
-          glbBase64 ? uploadTo0G(glbBase64, true) : Promise.resolve(undefined),
-        ]);
+    console.log(`[0G] Upload request received — session ${chatSessionId} message ${msgOrder}`);
 
-        console.log(`[0G] Upload complete. Saving metadata...`);
-        await saveModelMetadata(walletAddress, {
-          name: name || `Iteration ${messageOrder}`,
-          rootHashCode,
-          rootHashStl,
-          rootHashStep,
-          rootHashGlb,
-          parameters,
-          boundingBox,
-          chatSessionId,
-          messageOrder,
-        });
-        console.log(`[0G] Metadata saved for session ${chatSessionId} message ${messageOrder}`);
-      } catch (err) {
-        console.error(`[0G] Background upload failed:`, err);
+    await markModelUploadPending(walletAddress, {
+      name: modelName,
+      chatSessionId,
+      messageOrder: msgOrder,
+      parameters,
+      inspection,
+      boundingBox,
+    });
+
+    const rootHashes: { code?: string; stl?: string; step?: string; glb?: string } = {};
+
+    try {
+      // Upload 1/4: Code
+      console.log(`[0G] Upload 1/4 (code) initiated...`);
+      rootHashes.code = await uploadTo0G(code, false);
+      console.log(`[0G] Upload 1/4 (code) successful: ${rootHashes.code}`);
+
+      // Upload 2/4: STL
+      if (stlBase64) {
+        console.log(`[0G] Upload 2/4 (STL) initiated...`);
+        rootHashes.stl = await uploadTo0G(stlBase64, true);
+        console.log(`[0G] Upload 2/4 (STL) successful: ${rootHashes.stl}`);
+      } else {
+        console.log(`[0G] Upload 2/4 (STL) skipped — no data`);
       }
-    })();
+
+      // Upload 3/4: STEP
+      if (stepBase64) {
+        console.log(`[0G] Upload 3/4 (STEP) initiated...`);
+        rootHashes.step = await uploadTo0G(stepBase64, true);
+        console.log(`[0G] Upload 3/4 (STEP) successful: ${rootHashes.step}`);
+      } else {
+        console.log(`[0G] Upload 3/4 (STEP) skipped — no data`);
+      }
+
+      // Upload 4/4: GLB
+      if (glbBase64) {
+        console.log(`[0G] Upload 4/4 (GLB) initiated...`);
+        rootHashes.glb = await uploadTo0G(glbBase64, true);
+        console.log(`[0G] Upload 4/4 (GLB) successful: ${rootHashes.glb}`);
+      } else {
+        console.log(`[0G] Upload 4/4 (GLB) skipped — no data`);
+      }
+
+      console.log(`[0G] All uploads complete. Saving metadata to Supabase...`);
+      const saved = await markModelUploadComplete(walletAddress, {
+        name: modelName,
+        rootHashCode: rootHashes.code,
+        rootHashStl: rootHashes.stl,
+        rootHashStep: rootHashes.step,
+        rootHashGlb: rootHashes.glb,
+        parameters,
+        inspection,
+        boundingBox,
+        chatSessionId,
+        messageOrder: msgOrder,
+      });
+
+      if (saved) {
+        console.log(`[0G] Metadata saved to Supabase for session ${chatSessionId} message ${msgOrder}`);
+      } else {
+        console.error(`[0G] Failed to save metadata to Supabase for session ${chatSessionId} message ${msgOrder}`);
+      }
+
+      res.json({
+        success: true,
+        message: 'Upload to 0G complete',
+        chatSessionId,
+        messageOrder: msgOrder,
+        uploadStatus: 'complete',
+        rootHashes,
+      });
+    } catch (uploadErr) {
+      console.error(`[0G] Upload failed:`, uploadErr instanceof Error ? uploadErr.message : String(uploadErr));
+      await markModelUploadFailed(walletAddress, {
+        name: modelName,
+        chatSessionId,
+        messageOrder: msgOrder,
+        parameters,
+        inspection,
+        boundingBox,
+        error: uploadErr instanceof Error ? uploadErr.message : String(uploadErr),
+      });
+      res.status(500).json({
+        success: false,
+        error: uploadErr instanceof Error ? uploadErr.message : String(uploadErr),
+        rootHashes,
+      });
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(500).json({ error: msg });
+  }
+});
+
+router.get('/session/:sessionId/latest', authMiddleware, async (req, res) => {
+  try {
+    const walletAddress = (req as any).walletAddress;
+    const model = await getLatestModelForSession(req.params.sessionId, walletAddress);
+
+    if (!model) {
+      res.status(404).json({ error: 'No completed model found for this session' });
+      return;
+    }
+
+    const [code, stlBase64, stepBase64, glbBase64] = await Promise.all([
+      model.root_hash_code ? fetchFrom0G(model.root_hash_code, false) : Promise.resolve(undefined),
+      model.root_hash_stl ? fetchFrom0G(model.root_hash_stl, true) : Promise.resolve(undefined),
+      model.root_hash_step ? fetchFrom0G(model.root_hash_step, true) : Promise.resolve(undefined),
+      model.root_hash_glb ? fetchFrom0G(model.root_hash_glb, true) : Promise.resolve(undefined),
+    ]);
+
+    res.json({
+      success: true,
+      model: {
+        id: model.id,
+        name: model.name,
+        messageOrder: model.message_order,
+        code,
+        stlBase64,
+        stepBase64,
+        glbBase64,
+        parameters: model.parameters || [],
+        inspection: model.inspection || null,
+        boundingBox: model.bounding_box || null,
+        rootHashes: {
+          code: model.root_hash_code || undefined,
+          stl: model.root_hash_stl || undefined,
+          step: model.root_hash_step || undefined,
+          glb: model.root_hash_glb || undefined,
+        },
+        uploadStatus: model.upload_status,
+        createdAt: model.created_at,
+      },
+    });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     res.status(500).json({ error: msg });
