@@ -10,6 +10,7 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { StreamingMessage } from '@/components/chat/StreamingMessage';
 import { ClarificationMessage } from '@/components/chat/ClarificationMessage';
 import { MessageBubble } from '@/components/chat/MessageBubble';
+import { EditInput } from '@/components/chat/EditInput';
 import { DimViews } from '@/components/chat/DimViews';
 import { ParameterPanel } from '@/components/cad/ParameterPanel';
 import { ExportSection } from '@/components/cad/ExportSection';
@@ -32,9 +33,13 @@ import { PARAM_PHASES, getProviderDisplayName } from '@/lib/constants';
 export default function App() {
   // ── State ──
   const [prompt, setPrompt] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [sessionId, setSessionId] = useState<string | undefined>(undefined);
+  const [editingMessageIndex, setEditingMessageIndex] = useState<number | null>(null);
+  const [editOriginalPrompt, setEditOriginalPrompt] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [provider, setProvider] = useState('mimo-pro');
+  const [provider, setProvider] = useState('mimo');
   const [parameters, setParameters] = useState<Record<string, ParameterSchema>>({});
   const [currentCode, setCurrentCode] = useState('');
   const [stlUrl, setStlUrl] = useState<string | null>(null);
@@ -45,6 +50,7 @@ export default function App() {
   const [isFocused, setIsFocused] = useState(false);
   const [streamReasoning, setStreamReasoning] = useState('');
   const [reasoningEnabled, setReasoningEnabled] = useState(true);
+  const [providerSupportsVision, setProviderSupportsVision] = useState(false);
   const [exportFilename, setExportFilename] = useState('model');
   const [snapshots, setSnapshots] = useState<Record<string, string>>({});
   const [dimViews, setDimViews] = useState<Record<string, string>>({});
@@ -104,22 +110,51 @@ export default function App() {
     return () => { if (stlObjectUrl) URL.revokeObjectURL(stlObjectUrl); };
   }, [stlObjectUrl]);
 
+  // Check if current provider supports vision
+  useEffect(() => {
+    fetch(`${API_URL}/api/providers`)
+      .then(r => r.json())
+      .then(data => {
+        const p = (data.providers || []).find((p: any) => p.id === provider);
+        setProviderSupportsVision(p?.supportsVision || false);
+      })
+      .catch(() => setProviderSupportsVision(false));
+  }, [provider]);
+
+  // Clear images if provider changed to non-vision
+  useEffect(() => {
+    if (!providerSupportsVision && images.length > 0) {
+      setImages([]);
+    }
+  }, [providerSupportsVision]);
+
   // ── Handlers ──
-  const handleGenerate = useCallback(async (answers?: string, overridePrompt?: string) => {
+  const handleGenerate = useCallback(async (answers?: string, overridePrompt?: string, editMode?: boolean) => {
     const activePrompt = overridePrompt ?? prompt;
-    if (!activePrompt.trim() || isGenerating) return;
+    if ((!activePrompt.trim() && images.length === 0) || isGenerating) return;
 
     const isClarificationContinue = !!overridePrompt;
-    const userMsg: Message = { role: 'user', content: activePrompt, timestamp: Date.now() };
-    if (!isClarificationContinue) {
+    const userMsg: Message = { 
+      role: 'user', 
+      content: activePrompt, 
+      images: images.length > 0 ? [...images] : undefined,
+      timestamp: Date.now() 
+    };
+    if (!isClarificationContinue && !editMode) {
       setMessages(prev => [...prev, userMsg]);
     }
-    setPrompt('');
+    
+    if (!editMode) {
+      setPrompt('');
+      // Images are kept in state for multi-turn context (clarification, follow-up)
+      // They are only cleared when user explicitly removes them or starts a new task
+    }
     setIsGenerating(true);
     setStreamReasoning('');
     setSnapshots({});
     setDimViews({});
     setInspection(null);
+    setEditingMessageIndex(null);
     reasoningBufferRef.current = '';
     if (reasoningRafRef.current) { cancelAnimationFrame(reasoningRafRef.current); reasoningRafRef.current = null; }
 
@@ -127,9 +162,22 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userMsg.content, provider, history: messages, answers, reasoning: reasoningEnabled }),
+        body: JSON.stringify({ 
+          prompt: userMsg.content, 
+          provider, 
+          history: messages, 
+          answers, 
+          reasoning: reasoningEnabled,
+          images: userMsg.images,
+          sessionId: editMode ? sessionId : undefined,
+          editMode: editMode || false,
+          enableVision: userMsg.images && userMsg.images.length > 0,
+        }),
       });
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server error: ${res.status}`);
+      }
 
       const reader = res.body?.getReader();
       if (!reader) throw new Error('No response body');
@@ -147,10 +195,18 @@ export default function App() {
       assistantMessageIdRef.current = null;
 
       // Add a placeholder assistant message that will accumulate steps during generation
-      setMessages(prev => {
-        assistantMessageIdRef.current = prev.length;
-        return [...prev, { role: 'assistant', content: '', provider, steps: [], timestamp: Date.now() }];
-      });
+      if (!editMode) {
+        setMessages(prev => {
+          assistantMessageIdRef.current = prev.length;
+          return [...prev, { role: 'assistant', content: '', provider, steps: [], timestamp: Date.now() }];
+        });
+      } else {
+        // In edit mode, replace the message at editingMessageIndex or add new
+        setMessages(prev => {
+          assistantMessageIdRef.current = prev.length;
+          return [...prev, { role: 'assistant', content: '', provider, editMode: true, steps: [], timestamp: Date.now() }];
+        });
+      }
 
       const updateSteps = (steps: WorkflowStep[]) => {
         liveSteps = steps;
@@ -237,6 +293,7 @@ export default function App() {
                 if (data.inspection) setInspection(data.inspection);
                 if (data.snapshots) setSnapshots(data.snapshots);
                 if (data.visionVerified) visionVerified = true;
+                if (data.sessionId) setSessionId(data.sessionId);
                 // Safety: ensure any running steps are marked done when the final payload arrives
                 const remainingRunning = liveSteps.filter(s => s.status === 'running');
                 if (remainingRunning.length > 0) {
@@ -293,6 +350,8 @@ export default function App() {
           visionVerified: finalData.visionVerified,
           visionFeedback: visionFeedback || undefined,
           teeProof: finalData.teeProof,
+          sessionId: finalData.sessionId,
+          editMode: editMode || false,
           steps: liveSteps,
           timestamp: Date.now(),
         };
@@ -349,7 +408,7 @@ export default function App() {
       reasoningBufferRef.current = '';
       if (reasoningRafRef.current) { cancelAnimationFrame(reasoningRafRef.current); reasoningRafRef.current = null; }
     }
-  }, [prompt, isGenerating, provider, messages, stlObjectUrl, reasoningEnabled, setParamValues]);
+  }, [prompt, images, isGenerating, provider, messages, stlObjectUrl, reasoningEnabled, sessionId, setParamValues]);
 
   const handleClarificationSubmit = useCallback((answers: string, answerList: { question: string; answer: string }[]) => {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
@@ -361,6 +420,42 @@ export default function App() {
     handleGenerate(answers, lastUserMsg.content);
   }, [handleGenerate, messages]);
 
+  const handleEdit = useCallback((index: number) => {
+    const msg = messages[index];
+    if (msg.role !== 'assistant') return;
+    // Find the previous user message for this assistant response
+    let prevUserMsg: Message | null = null;
+    for (let i = index - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        prevUserMsg = messages[i];
+        break;
+      }
+    }
+    setEditingMessageIndex(index);
+    setEditOriginalPrompt(prevUserMsg?.content || 'previous design');
+  }, [messages]);
+
+  const handleEditSubmit = useCallback((editPrompt: string) => {
+    setEditingMessageIndex(null);
+    handleGenerate(undefined, editPrompt, true);
+  }, [handleGenerate]);
+
+  const handleRetry = useCallback((index: number) => {
+    const msg = messages[index];
+    if (msg.role !== 'assistant') return;
+    // Find the previous user message
+    let prevUserMsg: Message | null = null;
+    for (let i = index - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        prevUserMsg = messages[i];
+        break;
+      }
+    }
+    if (prevUserMsg) {
+      handleGenerate(undefined, prevUserMsg.content);
+    }
+  }, [messages, handleGenerate]);
+
   const handleNewTask = () => {
     setMessages([]);
     setParameters({});
@@ -371,11 +466,14 @@ export default function App() {
     if (stlObjectUrl) URL.revokeObjectURL(stlObjectUrl);
     setStlObjectUrl(null);
     setPrompt('');
+    setImages([]);
     setStreamReasoning('');
     setExportFilename('model');
     setSnapshots({});
     setDimViews({});
     setInspection(null);
+    setSessionId(undefined);
+    setEditingMessageIndex(null);
     resetParams();
   };
 
@@ -403,12 +501,14 @@ export default function App() {
                 <GlowCard glowColor="blue" customSize className="w-full max-w-2xl">
                   <div className="space-y-4">
                     <ChatInput
-                      prompt={prompt} setPrompt={setPrompt} onSubmit={handleGenerate}
+                      prompt={prompt} setPrompt={setPrompt} onSubmit={() => handleGenerate()}
                       isGenerating={isGenerating} isFocused={isFocused} setIsFocused={setIsFocused}
                       provider={provider} setProvider={setProvider}
                       placeholder="Start building with Chamfer AI..."
                       reasoningEnabled={reasoningEnabled} setReasoningEnabled={setReasoningEnabled}
                       showAnimatedPlaceholder
+                      images={images} onImagesChange={setImages}
+                      providerSupportsVision={providerSupportsVision}
                     />
                     <div className="flex flex-wrap justify-center gap-2">
                       <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm text-adam-text-secondary">
@@ -461,7 +561,21 @@ export default function App() {
                           <ClarificationMessage key={i} questions={msg.clarification} onSubmit={handleClarificationSubmit} />
                         ) : (
                           (isGenerating && i === messages.length - 1 && msg.role === 'assistant' && !msg.content) ? null : (
-                            <MessageBubble key={i} message={msg} />
+                            <div key={i}>
+                              <MessageBubble 
+                                message={msg} 
+                                index={i} 
+                                onEdit={handleEdit} 
+                                onRetry={handleRetry} 
+                              />
+                              {editingMessageIndex === i && (
+                                <EditInput
+                                  originalPrompt={editOriginalPrompt}
+                                  onSubmit={handleEditSubmit}
+                                  onCancel={() => setEditingMessageIndex(null)}
+                                />
+                              )}
+                            </div>
                           )
                         )
                       ))}
@@ -479,11 +593,13 @@ export default function App() {
                     {/* Input dock */}
                     <div className="border-t border-adam-neutral-700/40 p-3 bg-gradient-to-t from-white/[0.01] to-transparent">
                       <ChatInput
-                        prompt={prompt} setPrompt={setPrompt} onSubmit={handleGenerate}
+                        prompt={prompt} setPrompt={setPrompt} onSubmit={() => handleGenerate()}
                         isGenerating={isGenerating} isFocused={isFocused} setIsFocused={setIsFocused}
                         provider={provider} setProvider={setProvider}
                         placeholder="Modify your model..."
                         reasoningEnabled={reasoningEnabled} setReasoningEnabled={setReasoningEnabled}
+                        images={images} onImagesChange={setImages}
+                        providerSupportsVision={providerSupportsVision}
                       />
                     </div>
                   </div>

@@ -48,6 +48,9 @@ export interface Message {
   teeProof?: TEEProof;
   steps?: WorkflowStep[];
   bestEffort?: boolean;
+  images?: string[];
+  sessionId?: string;
+  editMode?: boolean;
   warning?: string;
   inspection?: InspectionData;
   snapshots?: Record<string, string>;
