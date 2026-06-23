@@ -49,7 +49,7 @@ export function ClarificationMessage({ questions, onSubmit, isGenerating }: Clar
         <div className="flex h-5 w-5 items-center justify-center rounded-md bg-adam-blue/15 text-adam-blue ring-1 ring-adam-blue/15">
           <HelpCircle className="h-3 w-3" />
         </div>
-        <span className="text-[11px] font-semibold text-adam-text-primary">Chamfer AI needs more details</span>
+        <span className="font-title font-bold text-adam-text-primary tracking-wider">Chamfer <span className="text-adam-blue font-sans font-extrabold">AI</span> needs more details</span>
       </div>
 
       <div className="space-y-3 mb-3">

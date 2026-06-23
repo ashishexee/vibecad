@@ -70,7 +70,7 @@ export function WorkflowTimeline({ steps, reasoning, provider }: WorkflowTimelin
                 />
               ))}
             </div>
-            <span className="text-[10px] font-semibold text-adam-text-tertiary uppercase tracking-[0.1em]">Workflow</span>
+            <span className="font-title font-bold text-adam-text-tertiary uppercase tracking-widest">Workflow</span>
           </div>
           <span className="text-[10px] text-adam-text-tertiary tabular-nums">
             {doneCount}/{displaySteps.length}
@@ -199,7 +199,7 @@ export function WorkflowTimeline({ steps, reasoning, provider }: WorkflowTimelin
         <div className="border-t border-adam-neutral-700/20 px-3 py-2">
           <button
             onClick={() => setReasoningOpen(prev => !prev)}
-            className="w-full flex items-center gap-1.5 text-[10px] text-adam-text-tertiary hover:text-adam-text-secondary transition-colors"
+            className="w-full flex items-center gap-1.5 font-title font-bold text-adam-text-tertiary hover:text-adam-text-secondary transition-colors uppercase tracking-wider"
           >
             <Brain className="h-3 w-3" />
             <span className="flex-1 text-left">{hasRealReasoning ? 'Model reasoning' : 'Thinking summary'}</span>

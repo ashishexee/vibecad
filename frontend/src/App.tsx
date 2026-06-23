@@ -1,12 +1,11 @@
 import { useState, useRef, useCallback, useEffect, Fragment } from 'react';
-import { Eye, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen, Save } from 'lucide-react';
+import { Eye, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen, Save, ChevronRight, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { NutIcon } from '@/components/hardware/NutIcon';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
 import type { Parameter, Message, InspectionData, ClarificationOption, WorkflowStep, SessionListItem, Specification } from '@/types';
 import { API_URL, CHAT_ENDPOINTS, MODEL_ENDPOINTS } from '@/lib/constants';
 import { useAuth } from '@/hooks/useAuth';
 // Components
-import { HeaderAuth } from '@/components/auth/HeaderAuth';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { PreviewPanel } from '@/components/layout/PreviewPanel';
 import { ChatInput } from '@/components/chat/ChatInput';
@@ -79,6 +78,11 @@ export default function App() {
   const [snapshots, setSnapshots] = useState<Record<string, string>>({});
   const [dimViews, setDimViews] = useState<Record<string, string>>({});
   const [inspection, setInspection] = useState<InspectionData | null>(null);
+  const [inspectExpanded, setInspectExpanded] = useState(false);
+  const [snapshotsExpanded, setSnapshotsExpanded] = useState(true);
+  const [parametersExpanded, setParametersExpanded] = useState(true);
+  const [exportExpanded, setExportExpanded] = useState(true);
+  const [codeExpanded, setCodeExpanded] = useState(true);
   const [collapsed, setCollapsed] = useState({ chat: false, preview: false, right: false });
   const [panelAnimating, setPanelAnimating] = useState(false);
   const [rotatingKey, setRotatingKey] = useState<'chat' | 'right' | null>(null);
@@ -874,9 +878,6 @@ export default function App() {
       />
 
       <div className="relative flex-1 overflow-auto bg-adam-bg-dark">
-        <div className="absolute top-4 right-6 z-50">
-          <HeaderAuth />
-        </div>
         <div className={`h-full bg-adam-bg-dark ${sidebarOpen ? 'p-6' : 'p-0'}`}>
           <div className="h-full bg-adam-bg-secondary-dark rounded-xl overflow-hidden flex relative">
 
@@ -975,6 +976,7 @@ export default function App() {
                       ))}
                       {isGenerating && (
                         <StreamingMessage
+                          provider={provider}
                           steps={messages.length > 0 && messages[messages.length - 1].role === 'assistant'
                             ? messages[messages.length - 1].steps
                             : undefined}
@@ -1064,75 +1066,155 @@ export default function App() {
                   className="bg-adam-bg-secondary-dark"
                 >
                   <div className="flex h-full flex-col relative">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-adam-neutral-700/40 bg-gradient-to-b from-white/[0.02] to-transparent">
-                      <span className="text-xs font-semibold text-adam-text-tertiary uppercase tracking-wider">Inspect</span>
+                    <div 
+                      onClick={() => setInspectExpanded(!inspectExpanded)}
+                      className="flex items-center justify-between px-4 py-3 border-b border-adam-neutral-700/40 bg-gradient-to-b from-white/[0.02] to-transparent cursor-pointer hover:bg-white/[0.02] transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-2">
+                        <ChevronRight className={`h-3.5 w-3.5 text-adam-text-tertiary transition-transform duration-200 ${inspectExpanded ? 'rotate-90' : ''}`} />
+                        <span className="font-title font-bold text-adam-text-tertiary uppercase tracking-widest">Inspect</span>
+                      </div>
                       {inspection && (
                         <div className="flex items-center gap-1.5">
-                          <div className={`w-1.5 h-1.5 rounded-full ${inspection.all_clear ? 'bg-emerald-400/60' : 'bg-yellow-400/60'}`} />
-                          <span className="text-[10px] text-adam-text-tertiary/70">{inspection.all_clear ? 'All clear' : 'Issues'}</span>
+                          {inspection.errors && inspection.errors.length > 0 ? (
+                            <>
+                              <XCircle className="h-3.5 w-3.5 text-red-400/90" />
+                              <span className="font-title font-bold text-red-400/90 tracking-wide">Issues</span>
+                            </>
+                          ) : inspection.warnings && inspection.warnings.length > 0 ? (
+                            <>
+                              <AlertTriangle className="h-3.5 w-3.5 text-yellow-400/90" />
+                              <span className="font-title font-bold text-yellow-400/90 tracking-wide">Warnings</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="h-3.5 w-3.5 text-green-400/90" />
+                              <span className="font-title font-bold text-green-400/90 tracking-wide">All Checks Passed</span>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
                     <div className="chat-scroll flex-1 overflow-y-auto">
                       {/* Inspection */}
-                      {inspection && <InspectionPanel inspection={inspection} />}
+                      {inspection && inspectExpanded && (
+                        <div className="border-b border-adam-neutral-700/40">
+                          <InspectionPanel inspection={inspection} />
+                        </div>
+                      )}
 
-                      {Object.keys(snapshots).length > 0 && <SnapshotGallery snapshots={snapshots} />}
-
-                      {Object.keys(dimViews).length > 0 && (
-                        <div className="p-4 border-b border-adam-neutral-700/40">
-                          <h3 className="text-xs font-semibold text-adam-text-tertiary/80 uppercase tracking-wider mb-3">Dimensional Views</h3>
-                          <DimViews dimViews={dimViews} />
+                      {/* Snapshots */}
+                      {Object.keys(snapshots).length > 0 && (
+                        <div className="border-b border-adam-neutral-700/40">
+                          <div
+                            onClick={() => setSnapshotsExpanded(!snapshotsExpanded)}
+                            className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors select-none"
+                          >
+                            <div className="flex items-center gap-2">
+                              <ChevronRight className={`h-3.5 w-3.5 text-adam-text-tertiary transition-transform duration-200 ${snapshotsExpanded ? 'rotate-90' : ''}`} />
+                              <h3 className="font-title font-bold text-adam-text-tertiary uppercase tracking-widest">Snapshots</h3>
+                            </div>
+                            <span className="text-[10px] text-adam-text-tertiary/60 tabular-nums">
+                              {Object.keys(snapshots).filter(k => snapshots[k] && !snapshots[k].includes('error')).length} views
+                            </span>
+                          </div>
+                          {snapshotsExpanded && (
+                            <SnapshotGallery snapshots={snapshots} />
+                          )}
                         </div>
                       )}
 
                       {/* Parameters */}
                       {Object.keys(parameters).length > 0 && (
-                        <div className="p-4 border-b border-adam-neutral-700/40">
-                          <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-xs font-semibold text-adam-text-tertiary/80 uppercase tracking-wider">Parameters</h3>
+                        <div className="border-b border-adam-neutral-700/40">
+                          <div
+                            onClick={() => setParametersExpanded(!parametersExpanded)}
+                            className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors select-none"
+                          >
+                            <div className="flex items-center gap-2">
+                              <ChevronRight className={`h-3.5 w-3.5 text-adam-text-tertiary transition-transform duration-200 ${parametersExpanded ? 'rotate-90' : ''}`} />
+                              <h3 className="font-title font-bold text-adam-text-tertiary/80 uppercase tracking-widest">Parameters</h3>
+                            </div>
                             <span className="text-[10px] text-adam-text-tertiary/60 tabular-nums">{Object.keys(parameters).length} params</span>
                           </div>
-                          <ParameterPanel parameters={parameters} values={paramValues} onChange={handleParamChange} />
-                          {isParamUpdating && (
-                            <div className="mt-3">
-                              <ProgressiveFluxLoader phases={PARAM_PHASES} showLabel={false} barClassName="h-1.5" className="gap-0" />
-                            </div>
-                          )}
-                          {paramError && (
-                            <div className="mt-2 flex items-start gap-2 text-[11px] text-red-400/90 bg-red-500/[0.06] rounded-lg px-3 py-2 ring-1 ring-red-500/10">
-                              {paramError}
-                            </div>
-                          )}
-                          {hasUnsavedParamIteration && currentCode && (
-                            <button
-                              type="button"
-                              onClick={storeCurrentIteration}
-                              disabled={isStoringIteration || !chatSessionId || latestMessageOrder === null}
-                              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-adam-blue/50 bg-adam-blue/10 px-3 py-2 text-xs font-medium text-adam-blue transition-colors hover:bg-adam-blue/20 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              <Save className="h-3.5 w-3.5" />
-                              {isStoringIteration ? <span>Starting <span className="text-pink-400 font-bold">0G</span> storage...</span> : 'Store this iteration'}
-                            </button>
-                          )}
-                          {modelStorageStatus && (
-                            <div className="mt-2 text-[10px] text-adam-text-tertiary bg-adam-neutral-800/60 rounded-md px-2 py-1.5">
-                              {modelStorageStatus}
+                          {parametersExpanded && (
+                            <div className="px-4 pb-4">
+                              <ParameterPanel parameters={parameters} values={paramValues} onChange={handleParamChange} />
+                              {isParamUpdating && (
+                                <div className="mt-3">
+                                  <ProgressiveFluxLoader phases={PARAM_PHASES} showLabel={false} barClassName="h-1.5" className="gap-0" />
+                                </div>
+                              )}
+                              {paramError && (
+                                <div className="mt-2 flex items-start gap-2 text-[11px] text-red-400/90 bg-red-500/[0.06] rounded-lg px-3 py-2 ring-1 ring-red-500/10">
+                                  {paramError}
+                                </div>
+                              )}
+                              {hasUnsavedParamIteration && currentCode && (
+                                <button
+                                  type="button"
+                                  onClick={storeCurrentIteration}
+                                  disabled={isStoringIteration || !chatSessionId || latestMessageOrder === null}
+                                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-adam-blue/50 bg-adam-blue/10 px-3 py-2 text-xs font-medium text-adam-blue transition-colors hover:bg-adam-blue/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  <Save className="h-3.5 w-3.5" />
+                                  {isStoringIteration ? <span>Starting <span className="text-pink-400 font-bold">0G</span> storage...</span> : 'Store this iteration'}
+                                </button>
+                              )}
+                              {modelStorageStatus && (
+                                <div className="mt-2 text-[10px] text-adam-text-tertiary bg-adam-neutral-800/60 rounded-md px-2 py-1.5">
+                                  {modelStorageStatus}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
                       )}
 
-                      <ExportSection
-                        stlBase64={stlBase64}
-                        stepBase64={stepBase64}
-                        exportFilename={exportFilename}
-                        setExportFilename={setExportFilename}
-                        rootHashStl={rootHashes?.stl}
-                        rootHashStep={rootHashes?.step}
-                      />
+                      {/* Export */}
+                      {(stlBase64 || stepBase64) && (
+                        <div className="border-b border-adam-neutral-700/40">
+                          <div
+                            onClick={() => setExportExpanded(!exportExpanded)}
+                            className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors select-none"
+                          >
+                            <div className="flex items-center gap-2">
+                              <ChevronRight className={`h-3.5 w-3.5 text-adam-text-tertiary transition-transform duration-200 ${exportExpanded ? 'rotate-90' : ''}`} />
+                              <h3 className="font-title font-bold text-adam-text-tertiary uppercase tracking-widest">
+                                Export <span className="text-[10px] font-sans font-normal text-pink-400/70 normal-case tracking-normal">by</span> <span className="text-pink-400 font-bold">0G</span>
+                              </h3>
+                            </div>
+                          </div>
+                          {exportExpanded && (
+                            <ExportSection
+                              stlBase64={stlBase64}
+                              stepBase64={stepBase64}
+                              exportFilename={exportFilename}
+                              setExportFilename={setExportFilename}
+                              rootHashStl={rootHashes?.stl}
+                              rootHashStep={rootHashes?.step}
+                            />
+                          )}
+                        </div>
+                      )}
 
-                      {currentCode && <CodeSection code={currentCode} />}
+                      {/* Generated Code */}
+                      {currentCode && (
+                        <div className="border-b border-adam-neutral-700/40">
+                          <div 
+                            onClick={() => setCodeExpanded(!codeExpanded)}
+                            className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors select-none"
+                          >
+                            <div className="flex items-center gap-2">
+                              <ChevronRight className={`h-3.5 w-3.5 text-adam-text-tertiary transition-transform duration-200 ${codeExpanded ? 'rotate-90' : ''}`} />
+                              <h3 className="font-title font-bold text-adam-text-tertiary uppercase tracking-widest">Generated Code <span className="text-[10px] font-sans font-normal text-pink-400/70 normal-case tracking-normal">by</span> <span className="text-pink-400 font-bold">0G</span></h3>
+                            </div>
+                          </div>
+                          {codeExpanded && (
+                            <CodeSection code={currentCode} />
+                          )}
+                        </div>
+                      )}
 
                       {/* Empty State */}
                       {Object.keys(parameters).length === 0 && !currentCode && (

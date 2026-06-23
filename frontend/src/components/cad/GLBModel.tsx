@@ -22,18 +22,13 @@ export function GLBModel({ url, updating, onBoundsReady }: GLBModelProps) {
     scene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        if (mesh.material) {
-          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-          materials.forEach((mat) => {
-            if (mat instanceof THREE.MeshStandardMaterial) {
-              mat.metalness = Math.max(0.4, mat.metalness);
-              mat.roughness = Math.min(0.5, mat.roughness);
-              mat.envMapIntensity = 1.2;
-            }
-          });
-        }
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        mesh.material = new THREE.MeshLambertMaterial({
+          color: new THREE.Color("#A8A8A8"),
+          transparent: updating,
+          opacity: updating ? 0.4 : 1,
+        });
       }
     });
 

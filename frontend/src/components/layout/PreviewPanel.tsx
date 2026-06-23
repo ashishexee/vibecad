@@ -115,7 +115,6 @@ export function PreviewPanel({
           key="main-canvas"
           camera={{ position: [30, 30, 30], fov: 30 }}
           gl={{ preserveDrawingBuffer: true, antialias: true }}
-          shadows
           className="w-full h-full"
         >
           <CanvasSetup onReady={handleReady} />
@@ -128,8 +127,6 @@ export function PreviewPanel({
           <directionalLight
             position={[50, 80, 50]}
             intensity={1.1}
-            castShadow
-            shadow-mapSize={[1024, 1024]}
           />
           <directionalLight position={[-50, 30, -40]} intensity={0.5} />
           <directionalLight position={[0, -20, -30]} intensity={0.15} />
@@ -141,17 +138,6 @@ export function PreviewPanel({
               url={stlUrl}
               updating={isParamUpdating}
               onBoundsReady={handleBoundsReady}
-            />
-          )}
-          {stlUrl && axesVisible && bounds && (
-            <ContactShadows
-              position={[0, -0.001, 0]}
-              opacity={0.55}
-              scale={bounds.radius * 3.5}
-              blur={2.2}
-              far={bounds.radius * 1.5}
-              resolution={256}
-              color="#000000"
             />
           )}
           <OrbitControls enableDamping dampingFactor={0.1} zoomSpeed={0.4} makeDefault />

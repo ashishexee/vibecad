@@ -12,23 +12,6 @@ interface ViewportHUDProps {
   hasModel: boolean;
 }
 
-// Wedge SVG segments arranged like a die — centered isometric disc + 6 outer faces.
-// The 7 faces are clickable to switch camera view.
-const FACE_DEFS: Array<{ id: ViewPresetId; label: string; path: string; viewBox?: string }> = [
-  // Top wedge
-  { id: 'top',    label: 'Top',    path: 'M40,14 L66,30 L40,46 L14,30 Z' },
-  // Right wedge
-  { id: 'right',  label: 'Right',  path: 'M66,30 L66,70 L40,86 L40,46 Z' },
-  // Bottom wedge
-  { id: 'bottom', label: 'Bot',    path: 'M40,46 L66,70 L40,94 L14,70 Z' },
-  // Left wedge
-  { id: 'left',   label: 'Left',   path: 'M14,30 L40,46 L40,86 L14,70 Z' },
-  // Front wedge (lower-left in iso)
-  { id: 'front',  label: 'Front',  path: 'M40,14 L40,46 L14,30 Z' },
-  // Back wedge (lower-right)
-  { id: 'back',   label: 'Back',   path: 'M40,14 L66,30 L40,46 Z' },
-];
-
 export function ViewportHUD({
   activeView,
   onSelectView,
@@ -42,49 +25,144 @@ export function ViewportHUD({
     <>
       {/* ─── Top-right: ViewCube + XYZ legend ─── */}
       <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 pointer-events-none">
-        <div className="glass-hud pointer-events-auto select-none p-1">
-          <svg viewBox="0 0 80 108" width="84" height="114" className="block">
-            {FACE_DEFS.map(f => {
-              const isActive = activeView === f.id;
-              return (
-                <g key={f.id} onClick={() => onSelectView(f.id)} className="cursor-pointer">
-                  <path
-                    d={f.path}
-                    fill={isActive ? '#00A6FF' : 'rgba(255,255,255,0.04)'}
-                    stroke={isActive ? '#00A6FF' : 'rgba(255,255,255,0.18)'}
-                    strokeWidth="0.8"
-                    className="transition-colors duration-150 hover:fill-[#00A6FF]/40"
-                  />
-                </g>
-              );
-            })}
-            {/* Iso center dot */}
-            <circle
-              cx="40"
-              cy="54"
-              r="3.5"
-              fill={activeView === 'iso' ? '#00A6FF' : 'rgba(255,255,255,0.25)'}
-              stroke="rgba(255,255,255,0.18)"
-              strokeWidth="0.6"
-              onClick={() => onSelectView('iso')}
-              className="cursor-pointer transition-colors duration-150 hover:fill-[#00A6FF]/40"
-            />
+        <div className="glass-hud pointer-events-auto select-none p-1.5 flex flex-col items-center gap-1.5 w-[108px]">
+          {/* SVG 3D Isometric View Cube */}
+          <svg viewBox="0 0 96 88" width="96" height="88" className="block select-none">
+            {/* TOP face */}
+            <g onClick={() => onSelectView('top')} className="cursor-pointer group/face">
+              <path
+                d="M 48,14 L 78,29 L 48,44 L 18,29 Z"
+                fill={activeView === 'top' ? '#00A6FF' : 'rgba(255,255,255,0.03)'}
+                stroke={activeView === 'top' ? '#00A6FF' : 'rgba(255,255,255,0.15)'}
+                strokeWidth="1.2"
+                className="transition-colors duration-150 group-hover/face:fill-[#00A6FF]/20 group-hover/face:stroke-[#00A6FF]/40"
+              />
+              <text
+                x="48"
+                y="31"
+                textAnchor="middle"
+                className={cn(
+                  "text-[8px] font-bold tracking-wider pointer-events-none select-none transition-colors duration-150",
+                  activeView === 'top' ? 'fill-white' : 'fill-adam-text-secondary group-hover/face:fill-white'
+                )}
+              >
+                TOP
+              </text>
+            </g>
+
+            {/* FRONT face */}
+            <g onClick={() => onSelectView('front')} className="cursor-pointer group/face">
+              <path
+                d="M 18,29 L 48,44 L 48,74 L 18,59 Z"
+                fill={activeView === 'front' ? '#00A6FF' : 'rgba(255,255,255,0.03)'}
+                stroke={activeView === 'front' ? '#00A6FF' : 'rgba(255,255,255,0.15)'}
+                strokeWidth="1.2"
+                className="transition-colors duration-150 group-hover/face:fill-[#00A6FF]/20 group-hover/face:stroke-[#00A6FF]/40"
+              />
+              <text
+                x="33"
+                y="54"
+                textAnchor="middle"
+                className={cn(
+                  "text-[8px] font-bold tracking-wider pointer-events-none select-none transition-colors duration-150",
+                  activeView === 'front' ? 'fill-white' : 'fill-adam-text-secondary group-hover/face:fill-white'
+                )}
+              >
+                FRONT
+              </text>
+            </g>
+
+            {/* RIGHT face */}
+            <g onClick={() => onSelectView('right')} className="cursor-pointer group/face">
+              <path
+                d="M 48,44 L 78,29 L 78,59 L 48,74 Z"
+                fill={activeView === 'right' ? '#00A6FF' : 'rgba(255,255,255,0.03)'}
+                stroke={activeView === 'right' ? '#00A6FF' : 'rgba(255,255,255,0.15)'}
+                strokeWidth="1.2"
+                className="transition-colors duration-150 group-hover/face:fill-[#00A6FF]/20 group-hover/face:stroke-[#00A6FF]/40"
+              />
+              <text
+                x="63"
+                y="54"
+                textAnchor="middle"
+                className={cn(
+                  "text-[8px] font-bold tracking-wider pointer-events-none select-none transition-colors duration-150",
+                  activeView === 'right' ? 'fill-white' : 'fill-adam-text-secondary group-hover/face:fill-white'
+                )}
+              >
+                RIGHT
+              </text>
+            </g>
           </svg>
+
+          {/* Grid buttons for other views */}
+          <div className="w-full border-t border-white/[0.04] pt-2 px-0.5 pb-0.5 flex flex-col gap-1.5">
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                onClick={() => onSelectView('left')}
+                className={cn(
+                  "py-0.5 px-1 rounded text-[8px] font-semibold border text-center transition-all duration-150",
+                  activeView === 'left'
+                    ? "bg-adam-blue/15 text-adam-blue border-adam-blue/30"
+                    : "bg-white/[0.01] text-adam-text-secondary border-white/[0.04] hover:bg-white/[0.04] hover:text-adam-text-primary hover:border-white/[0.1]"
+                )}
+              >
+                LEFT
+              </button>
+              <button
+                onClick={() => onSelectView('back')}
+                className={cn(
+                  "py-0.5 px-1 rounded text-[8px] font-semibold border text-center transition-all duration-150",
+                  activeView === 'back'
+                    ? "bg-adam-blue/15 text-adam-blue border-adam-blue/30"
+                    : "bg-white/[0.01] text-adam-text-secondary border-white/[0.04] hover:bg-white/[0.04] hover:text-adam-text-primary hover:border-white/[0.1]"
+                )}
+              >
+                BACK
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                onClick={() => onSelectView('bottom')}
+                className={cn(
+                  "py-0.5 px-1 rounded text-[8px] font-semibold border text-center transition-all duration-150",
+                  activeView === 'bottom'
+                    ? "bg-adam-blue/15 text-adam-blue border-adam-blue/30"
+                    : "bg-white/[0.01] text-adam-text-secondary border-white/[0.04] hover:bg-white/[0.04] hover:text-adam-text-primary hover:border-white/[0.1]"
+                )}
+              >
+                BOTTOM
+              </button>
+              <button
+                onClick={() => onSelectView('iso')}
+                className={cn(
+                  "py-0.5 px-1 rounded text-[8px] font-semibold border text-center transition-all duration-150",
+                  activeView === 'iso'
+                    ? "bg-adam-blue/15 text-adam-blue border-adam-blue/30"
+                    : "bg-white/[0.01] text-adam-text-secondary border-white/[0.04] hover:bg-white/[0.04] hover:text-adam-text-primary hover:border-white/[0.1]"
+                )}
+              >
+                ISO
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* XYZ legend */}
-        <div className="glass-hud pointer-events-auto px-3 py-2.5 flex flex-col gap-1 select-none">
-          <div className="flex items-center gap-2.5 text-xs font-semibold text-adam-text-primary">
-            <span className="inline-block w-3 h-0.5 rounded-full" style={{ background: '#E34D4D' }} />
-            <span style={{ color: '#E34D4D' }}>X</span>
-          </div>
-          <div className="flex items-center gap-2.5 text-xs font-semibold text-adam-text-primary">
-            <span className="inline-block w-3 h-0.5 rounded-full" style={{ background: '#7AB838' }} />
-            <span style={{ color: '#7AB838' }}>Y</span>
-          </div>
-          <div className="flex items-center gap-2.5 text-xs font-semibold text-adam-text-primary">
-            <span className="inline-block w-3 h-0.5 rounded-full" style={{ background: '#4D8FE3' }} />
-            <span style={{ color: '#4D8FE3' }}>Z</span>
+        <div className="glass-hud pointer-events-auto px-3 py-2 flex flex-col gap-1 select-none w-[108px] items-center">
+          <div className="flex items-center justify-between w-full text-[10px] font-semibold">
+            <span style={{ color: '#E34D4D' }} className="flex items-center gap-1.5">
+              <span className="inline-block w-2.5 h-0.5 rounded-full bg-[#E34D4D]" />
+              X
+            </span>
+            <span style={{ color: '#7AB838' }} className="flex items-center gap-1.5">
+              <span className="inline-block w-2.5 h-0.5 rounded-full bg-[#7AB838]" />
+              Y
+            </span>
+            <span style={{ color: '#4D8FE3' }} className="flex items-center gap-1.5 font-bold">
+              <span className="inline-block w-2.5 h-0.5 rounded-full bg-[#4D8FE3]" />
+              Z
+            </span>
           </div>
         </div>
       </div>

@@ -17,6 +17,9 @@ export const LampContainer = ({
         className
       )}
     >
+      {/* Faint Grid Background */}
+      <div className="absolute inset-0 bg-grid-pattern pointer-events-none z-0" />
+
       {/* Lamp glow — anchored to top */}
       <div className="absolute top-0 left-0 right-0 h-[400px] overflow-hidden z-0">
         <div className="relative w-full h-full flex items-start justify-center isolate">

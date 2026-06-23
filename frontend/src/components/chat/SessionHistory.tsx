@@ -25,7 +25,7 @@ export function SessionHistory({ sessions, activeSessionId, onSelect, compact }:
   return (
     <div className="space-y-0.5">
       {!compact && (
-        <div className="px-3 py-2 text-[10px] font-semibold text-adam-text-tertiary uppercase tracking-[0.1em]">
+        <div className="px-3 py-2 font-title font-bold text-adam-text-tertiary uppercase tracking-widest">
           Chat History
         </div>
       )}

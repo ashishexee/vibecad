@@ -489,7 +489,7 @@ export function HomePage() {
                       ) : (
                         (isGenerating && i === messages.length - 1 && msg.role === 'assistant' && !msg.content) ? null : (
                         <div key={i} className={`rounded-xl p-3 text-sm ${msg.role === 'user' ? 'bg-adam-background-1' : msg.error ? 'bg-red-500/10' : 'bg-adam-background-1'}`}>
-                          <div className="text-[10px] text-adam-text-tertiary mb-1 font-medium">
+                          <div className="font-title font-bold text-adam-text-primary mb-1 tracking-wide">
                             {msg.role === 'user' ? 'You' : msg.provider ? getProviderDisplayName(msg.provider) : 'Chamfer AI'}
                           </div>
                           {msg.clarificationAnswers && msg.clarificationAnswers.length > 0 ? (

@@ -70,7 +70,7 @@ export function MessageBubble({ message, index, onEdit, onRetry }: MessageBubble
         {/* Name + timestamp */}
         <div className="flex flex-1 items-center gap-2 min-w-0">
           <span className={cn(
-            'text-xs font-semibold truncate',
+            'font-title font-bold truncate tracking-wide',
             isUser ? 'text-adam-text-secondary' : isError ? 'text-red-400' : 'text-adam-text-primary'
           )}>
             {isUser ? 'You' : message.provider ? getProviderDisplayName(message.provider) : 'Chamfer AI'}

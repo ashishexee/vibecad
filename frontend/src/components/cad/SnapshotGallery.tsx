@@ -21,14 +21,7 @@ export function SnapshotGallery({ snapshots }: SnapshotGalleryProps) {
   };
 
   return (
-    <div className="p-4 border-b border-adam-neutral-700">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold text-adam-text-tertiary uppercase tracking-wider flex items-center gap-1.5">
-          <Camera className="h-3 w-3" /> Snapshots
-        </h3>
-        <span className="text-[10px] text-adam-text-tertiary">{entries.length} views</span>
-      </div>
-
+    <div className="px-4 pb-4">
       <div className="grid grid-cols-3 gap-2">
         {entries.map(([view, svg]) => (
           <button

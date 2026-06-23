@@ -120,15 +120,14 @@ export function ChatInput({
             <button
               onClick={() => fileInputRef.current?.click()}
               className={cn(
-                'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] transition-all',
+                'h-8 w-8 flex items-center justify-center rounded-xl transition-all border shrink-0',
                 images.length > 0
-                  ? 'bg-adam-blue/15 text-adam-blue ring-1 ring-adam-blue/15'
-                  : 'bg-adam-neutral-800/60 text-adam-text-tertiary hover:bg-adam-neutral-700/60 hover:text-adam-text-secondary'
+                  ? 'bg-adam-blue/15 text-adam-blue border-adam-blue/30 shadow-[0_0_10px_rgba(0,166,255,0.1)]'
+                  : 'bg-adam-neutral-800/60 text-adam-text-tertiary border-white/[0.06] hover:bg-adam-neutral-700/60 hover:text-adam-text-secondary'
               )}
               title="Upload reference images"
             >
-              <ImagePlus className="w-3 h-3" />
-              {images.length > 0 && <span className="text-[10px]">{images.length}</span>}
+              <ImagePlus className="w-4 h-4" />
             </button>
           )}
           <input
@@ -144,24 +143,24 @@ export function ChatInput({
           <button
             onClick={() => setReasoningEnabled(!reasoningEnabled)}
             className={cn(
-              'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all',
+              'h-8 flex items-center gap-1.5 rounded-xl px-3 text-[11px] font-medium transition-all border shrink-0',
               reasoningEnabled
-                ? 'bg-adam-blue/15 text-adam-blue ring-1 ring-adam-blue/15'
-                : 'bg-adam-neutral-800/60 text-adam-text-tertiary hover:bg-adam-neutral-700/60 hover:text-adam-text-secondary'
+                ? 'bg-adam-blue/15 text-adam-blue border-adam-blue/30 shadow-[0_0_10px_rgba(0,166,255,0.1)]'
+                : 'bg-adam-neutral-800/60 text-adam-text-tertiary border-white/[0.06] hover:bg-adam-neutral-700/60 hover:text-adam-text-secondary'
             )}
             title={reasoningEnabled ? 'Reasoning mode — slower, more thorough' : 'Fast mode — quicker responses'}
           >
-            <Brain className="h-3 w-3" />
+            <Brain className="h-3.5 w-3.5" />
             {reasoningEnabled ? 'Think' : 'Fast'}
           </button>
           <button
             onClick={() => onSubmit()}
             disabled={!isConnected || isGenerating || (!prompt.trim() && images.length === 0)}
             className={cn(
-              'flex h-8 w-8 items-center justify-center rounded-lg transition-all',
+              'h-8 w-8 flex items-center justify-center rounded-xl transition-all border shrink-0',
               (prompt.trim() || images.length > 0) && !isGenerating && isConnected
-                ? 'bg-adam-blue text-white hover:bg-adam-blue/90 shadow-[0_2px_8px_rgba(0,166,255,0.25)]'
-                : 'bg-adam-neutral-800/60 text-adam-text-tertiary cursor-not-allowed'
+                ? 'bg-adam-blue text-white border-adam-blue/20 hover:bg-adam-blue/90 shadow-[0_2px_8px_rgba(0,166,255,0.25)]'
+                : 'bg-adam-neutral-800/60 text-adam-text-tertiary border-white/[0.06] cursor-not-allowed'
             )}
             title={!isConnected ? "Please connect your wallet first" : ""}
           >

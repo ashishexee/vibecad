@@ -33,13 +33,9 @@ export function STLModel({ url, updating, onBoundsReady }: STLModelProps) {
   }, [geometry, onBoundsReady, camera]);
 
   return (
-    <mesh ref={ref} geometry={geometry} castShadow receiveShadow>
-      <meshStandardMaterial
+    <mesh ref={ref} geometry={geometry}>
+      <meshLambertMaterial
         color="#A8A8A8"
-        metalness={0.55}
-        roughness={0.35}
-        emissive="#1a1a1a"
-        emissiveIntensity={0.12}
         transparent={updating}
         opacity={updating ? 0.4 : 1}
       />

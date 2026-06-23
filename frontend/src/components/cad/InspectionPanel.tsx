@@ -29,20 +29,10 @@ export function InspectionPanel({ inspection }: InspectionPanelProps) {
     : 'All Checks Passed';
 
   return (
-    <div className="p-4 border-b border-adam-neutral-700">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold text-adam-text-tertiary uppercase tracking-wider flex items-center gap-1.5">
-          <Ruler className="h-3 w-3" /> Inspection
-        </h3>
-        <div className="flex items-center gap-1.5">
-          {statusIcon}
-          <span className="text-[10px] text-adam-text-tertiary">{statusText}</span>
-        </div>
-      </div>
-
+    <div className="p-4 flex flex-col gap-3">
       {/* Geometry Stats */}
       {inspection.bounding_box?.size && (
-        <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="grid grid-cols-2 gap-2">
           <Stat label="Dimensions" value={`${inspection.bounding_box.size.map(s => s.toFixed(0)).join('x')}mm`} />
           <Stat label="Volume" value={`${(inspection.volume || 0).toFixed(1)}mm³`} />
           <Stat label="Faces" value={String(inspection.face_count || 0)} />
@@ -54,7 +44,7 @@ export function InspectionPanel({ inspection }: InspectionPanelProps) {
 
       {/* Errors */}
       {hasErrors && (
-        <div className="space-y-1 mb-2">
+        <div className="space-y-1">
           {inspection.errors!.map((err, i) => (
             <div key={i} className="text-[10px] text-red-400 bg-red-500/10 rounded-md px-2 py-1.5 flex items-start gap-1.5">
               <XCircle className="h-3 w-3 mt-0.5 shrink-0" />
@@ -86,7 +76,7 @@ export function InspectionPanel({ inspection }: InspectionPanelProps) {
 
       {/* Vision inspection status */}
       {hasVision && (
-        <div className="mt-2 space-y-1.5">
+        <div className="space-y-1.5">
           {visionChecking && (
             <div className="text-[10px] text-adam-blue bg-adam-blue/10 rounded-md px-2 py-1.5 flex items-center gap-1.5">
               <Eye className="h-3 w-3 animate-pulse" />
@@ -113,7 +103,7 @@ export function InspectionPanel({ inspection }: InspectionPanelProps) {
 
 function Stat({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
   return (
-    <div className="bg-adam-bg-dark rounded-md px-2 py-1.5">
+    <div className="bg-white/[0.02] border border-white/[0.04] rounded-lg px-2.5 py-1.5">
       <div className="text-[9px] text-adam-text-tertiary uppercase tracking-wider">{label}</div>
       <div className={`text-xs text-adam-text-primary font-medium ${valueClass || ''}`}>{value}</div>
     </div>

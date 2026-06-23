@@ -1,8 +1,32 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
+@font-face {
+  font-family: 'Mechanical';
+  src: url('/Mechanical-FREE.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .font-title {
+    font-family: 'Mechanical', 'Inter', sans-serif !important;
+    font-size: 15px !important;
+    letter-spacing: 0.05em !important;
+  }
+  .bg-grid-pattern {
+    background-image: 
+      linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: center;
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.15) 20%, rgba(0, 0, 0, 0.95) 100%);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.15) 20%, rgba(0, 0, 0, 0.95) 100%);
+  }
+}
 
 :root { --radius: 0.5rem; }
 

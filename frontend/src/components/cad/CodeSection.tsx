@@ -27,27 +27,22 @@ export function CodeSection({ code }: CodeSectionProps) {
   };
 
   return (
-    <div className="p-4 flex-1 min-h-0">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <h3 className="text-xs font-semibold text-adam-text-tertiary uppercase tracking-wider">Generated Code <span className="text-[10px] font-normal text-pink-400/70 normal-case tracking-normal">by</span> <span className="text-pink-400 font-bold">0G</span></h3>
-          </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleDownload}
-            className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-adam-text-tertiary hover:text-adam-text-secondary hover:bg-adam-neutral-800 transition-colors"
-          >
-            <Download className="h-3 w-3" />
-            Download
-          </button>
-          <button
-            onClick={handleCopy}
-            className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-adam-text-tertiary hover:text-adam-text-secondary hover:bg-adam-neutral-800 transition-colors"
-          >
-            {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
-            {copied ? 'Copied' : 'Copy'}
-          </button>
-        </div>
+    <div className="px-4 pb-4 flex flex-col gap-2">
+      <div className="flex justify-end gap-1">
+        <button
+          onClick={handleDownload}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-adam-text-tertiary hover:text-adam-text-secondary hover:bg-adam-neutral-800 transition-colors"
+        >
+          <Download className="h-3 w-3" />
+          Download
+        </button>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-adam-text-tertiary hover:text-adam-text-secondary hover:bg-adam-neutral-800 transition-colors"
+        >
+          {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
       </div>
       <pre className="text-[11px] text-adam-text-secondary bg-adam-bg-dark rounded-lg p-3 overflow-auto max-h-[calc(100vh-400px)] font-mono leading-relaxed border border-adam-neutral-700">
         {code}

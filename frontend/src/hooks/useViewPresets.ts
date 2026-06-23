@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import type { Camera } from 'three';
+import { Vector3, type Camera } from 'three';
 import type { OrbitControls } from 'three-stdlib';
 import { VIEW_PRESETS, type ViewPresetId } from '@/lib/constants';
 
@@ -38,8 +38,13 @@ export function useViewPresets(
 
     cancel();
 
+    // Get current distance to target to rotate without changing zoom
+    const currentDistance = camera.position.distanceTo(controls.target);
+    const direction = new Vector3(...preset.position).normalize();
+    const targetPosition = controls.target.clone().add(direction.multiplyScalar(currentDistance));
+
     startPos.current = [camera.position.x, camera.position.y, camera.position.z];
-    endPos.current = preset.position;
+    endPos.current = [targetPosition.x, targetPosition.y, targetPosition.z];
     const epsilonTarget: [number, number, number] =
       preset.position[2] === 0
         ? [0, 0, Math.sign(preset.position[0] || preset.position[1] || 1) * 0.001]

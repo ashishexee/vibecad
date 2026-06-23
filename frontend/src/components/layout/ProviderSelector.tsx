@@ -70,14 +70,14 @@ export function ProviderSelector({ selected, onSelect, requireVision = false }: 
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          'flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] transition-all',
+          'h-8 flex items-center gap-1.5 rounded-xl px-3 text-[11px] transition-all border font-medium shrink-0',
           open
-            ? 'bg-adam-blue/20 text-adam-blue'
-            : 'bg-adam-neutral-800 text-adam-text-tertiary hover:bg-adam-neutral-700 hover:text-adam-text-secondary'
+            ? 'bg-adam-blue/15 text-adam-blue border-adam-blue/30 shadow-[0_0_10px_rgba(0,166,255,0.1)]'
+            : 'bg-adam-neutral-800/60 text-adam-text-tertiary border-white/[0.06] hover:bg-adam-neutral-700/60 hover:text-adam-text-secondary'
         )}
       >
-        <span className="font-medium">{selectedProvider?.name?.split(' (')[0] || 'Model'}</span>
-        {selectedProvider?.supportsVision && <Eye className="w-3 h-3 text-adam-blue/70" />}
+        <span className="font-semibold">{selectedProvider?.name?.split(' (')[0] || 'Model'}</span>
+        {selectedProvider?.supportsVision && <Eye className="w-3.5 h-3.5 text-adam-blue/70" />}
       </button>
 
       {open && (
