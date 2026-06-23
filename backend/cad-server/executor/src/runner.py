@@ -1,20 +1,22 @@
 """Sandboxed runner for Docker-based CadQuery execution.
 
-Runs inside an air-gapped container mounted at /work (rw volume).
-Reads user code from /work/user_code.py, executes it with restricted
-globals (no os.system, no open(), no __import__ except cadquery + math),
-exports STL/STEP/GLB, runs validation + inspection, and optionally
-renders SVG snpashots, PNG renders, and 2D dimensional views.
+Runs inside an air-gapped container. Reads user code from JOB_DIR/user_code.py,
+executes it with restricted globals (no os.system, no open(), no __import__
+except cadquery + math), exports STL/STEP/GLB, runs validation + inspection,
+and optionally renders SVG snapshots, PNG renders, and 2D dimensional views.
 
-Expects config at /work/config.json (parsed BEFORE any user-code
+Expects config at JOB_DIR/config.json (parsed BEFORE any user-code
 execution so malformed config fails fast).
+
+JOB_DIR is set via environment variable (defaults to /work for bare-metal).
 """
 
 import json
+import os
 import traceback
 from pathlib import Path
 
-WORK = Path("/work")
+WORK = Path(os.environ.get("JOB_DIR", "/work"))
 CONFIG_PATH = WORK / "config.json"
 USER_CODE_PATH = WORK / "user_code.py"
 
@@ -131,10 +133,10 @@ except Exception:
     traceback.print_exc()
     raise RuntimeError("User code execution failed") from None
 
-if "r" not in RESTRICTED_GLOBALS:
-    raise RuntimeError("Code did not define variable 'r'")
+if "r" not in RESTRICTED_GLOBALS and "result" not in RESTRICTED_GLOBALS:
+    raise RuntimeError("Code did not define variable 'r' or 'result'")
 
-result_shape = RESTRICTED_GLOBALS["r"]
+result_shape = RESTRICTED_GLOBALS.get("r") or RESTRICTED_GLOBALS.get("result")
 
 # ──────────────────────────────────────────────────────────────────────
 # 5.  Export files  (STL, STEP, GLB)

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import type { Parameter } from '@/types';
+import type { ParameterSchema } from '@/types';
 import { API_URL } from '@/lib/constants';
 
 interface UseParamUpdateOptions {
@@ -49,7 +49,13 @@ export function useParamUpdate({
     });
   }, []);
 
-  const handleParamChange = useCallback((name: string, value: number) => {
+  const handleParamChange = useCallback((name: string, value: number | string | boolean) => {
+    if (typeof value !== 'number') {
+      // Non-numeric params (bool, enum, string) — local state only, no server round-trip
+      updateParamValues(prev => ({ ...prev, [name]: value as any }));
+      return;
+    }
+
     const newVals = { ...paramValuesRef.current, [name]: value };
     updateParamValues(newVals);
     setParamError(null);
@@ -86,13 +92,21 @@ export function useParamUpdate({
         if (data.dimViews) onDimViewsUpdate?.(data.dimViews);
         if (data.inspection) onInspectionUpdate?.(data.inspection);
 
-        if (data.parameters?.length) {
-          onParametersUpdate(data.parameters);
-          const vals: Record<string, number> = {};
-          data.parameters.forEach((p: Parameter) => {
-            vals[p.name] = newVals[p.name] ?? p.default;
-          });
-          updateParamValues(prev => ({ ...prev, ...vals }));
+        if (data.parameters) {
+          const paramsObj = Array.isArray(data.parameters)
+            ? Object.fromEntries(data.parameters.map((p: any) => [p.name, p]))
+            : data.parameters;
+          // Only overwrite if the response actually contains parameters
+          if (Object.keys(paramsObj).length > 0) {
+            onParametersUpdate(paramsObj);
+            const vals: Record<string, number> = {};
+            Object.entries(paramsObj).forEach(([name, schema]: [string, any]) => {
+              if (typeof schema.default === 'number') {
+                vals[name] = newVals[name] ?? schema.default;
+              }
+            });
+            updateParamValues(prev => ({ ...prev, ...vals }));
+          }
         }
 
         setParamUpdateKey(k => k + 1);

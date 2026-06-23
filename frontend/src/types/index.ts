@@ -1,3 +1,13 @@
+export interface ParameterSchema {
+  type: 'int' | 'float' | 'bool' | 'string' | 'enum' | 'color';
+  default: number | string | boolean;
+  min?: number;
+  max?: number;
+  step?: number;
+  description?: string;
+  options?: string[];
+}
+
 export interface Parameter {
   name: string;
   default: number;
@@ -11,16 +21,16 @@ export interface Specification {
   answer: string;
 }
 
-export interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  specifications?: Specification[];
-  provider?: string;
-  dimViews?: Record<string, string>;
-  error?: string;
-  // Live-only fields (NOT stored in DB — only present during a live SSE event)
-  clarification?: ClarificationOption[];
-  steps?: WorkflowStep[];
+export interface ClarificationOption {
+  question: string;
+  key: string;
+  options: string[];
+  default: string;
+}
+
+export interface ClarificationAnswer {
+  question: string;
+  answer: string;
 }
 
 export interface WorkflowStep {
@@ -28,8 +38,8 @@ export interface WorkflowStep {
   icon: string;
   label: string;
   detail: string;
-  status: 'pending' | 'running' | 'done' | 'error';
-  timestamp: number;
+  status?: 'pending' | 'running' | 'done' | 'error';
+  timestamp?: number;
 }
 
 export interface InspectionData {
@@ -58,11 +68,32 @@ export interface InspectionData {
   visionFeedback?: string;
 }
 
-export interface ClarificationOption {
-  question: string;
-  key: string;
-  options: string[];
-  default: string;
+export interface TEEProof {
+  providerAddress: string;
+  chatId: string;
+  signature: string;
+  timestamp: number;
+  verified: boolean;
+}
+
+export interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+  specifications?: Specification[];
+  provider?: string;
+  dimViews?: Record<string, string>;
+  error?: string;
+  clarification?: ClarificationOption[];
+  clarificationAnswers?: ClarificationAnswer[];
+  teeProof?: TEEProof;
+  steps?: WorkflowStep[];
+  bestEffort?: boolean;
+  warning?: string;
+  inspection?: InspectionData;
+  snapshots?: Record<string, string>;
+  visionVerified?: boolean;
+  visionFeedback?: string;
+  timestamp?: number;
 }
 
 export interface Provider {
@@ -108,4 +139,14 @@ export interface RootHashData {
   step?: string;
   glb?: string;
   dimViews?: string;
+  snapshots?: string;
+  inspection?: string;
+}
+
+export interface GenerationResult {
+  code: string;
+  parameters: Record<string, ParameterSchema>;
+  description: string;
+  tags: string[];
+  teeProof?: TEEProof;
 }

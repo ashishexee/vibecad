@@ -1,6 +1,8 @@
 import os
+import sys
 import json
-import tempfile
+import uuid
+import shutil
 from pathlib import Path
 
 try:
@@ -11,9 +13,24 @@ except Exception:
     _DOCKER_CLIENT = None
     _DOCKER_AVAILABLE = False
 
-_IMAGE = "vibecad-cad-executor"
+_IMAGE = "chamfer-ai-cad-executor"
 _EXECUTION_TIMEOUT = 30
 
+# Shared volume path (mounted via docker-compose)
+_SHARED_DIR = Path("/shared/jobs")
+_VOLUME_NAME = os.environ.get("CAD_WORK_VOLUME", "cad-work")
+
+
+def _get_work_dir() -> Path:
+    """Create a unique job directory inside the shared volume, or fall back to temp."""
+    if _SHARED_DIR.parent.exists():
+        job_dir = _SHARED_DIR / uuid.uuid4().hex
+        job_dir.mkdir(parents=True, exist_ok=True)
+        os.chmod(job_dir, 0o777)
+        return job_dir
+    # Fallback for bare-metal (not in Docker)
+    import tempfile
+    return Path(tempfile.mkdtemp(prefix="chamfer_ai_"))
 
 def execute_cadquery(
     code: str,
@@ -22,34 +39,21 @@ def execute_cadquery(
     render_png: bool = False,
     render_dim_views: bool = False,
 ) -> dict:
-    """Execute CadQuery code in a sandboxed Docker container.
-
-    Args:
-        code: CadQuery Python source code.
-        params: Optional parameter substitutions.
-        render_snapshots: Render SVG snapshots (for user display).
-        render_png: Render PNG snapshots (for LLM visual inspection).
-        render_dim_views: Render 2D dimensional orthographic views (top/front/side).
-
-    Returns dict matching the existing interface:
-        success, error, stl, step, glb, validation, inspection,
-        snapshots, png_snapshots, dim_views
-    """
     from params import substitute_params
 
     if not _DOCKER_AVAILABLE:
         return {
             "success": False,
             "error": "Docker is not available — install docker and the docker Python SDK, "
-                     "then build the executor image with: docker build -t vibecad-cad-executor .",
+                     "then build the executor image with: docker build -t chamfer-ai-cad-executor .",
         }
 
     processed_code = substitute_params(code, params) if params else code
 
-    with tempfile.TemporaryDirectory(prefix="vibecad_") as work_dir:
-        os.chmod(work_dir, 0o777)  # allow container (UID 1000) to write to mounted volume
-        work = Path(work_dir)
+    work = _get_work_dir()
+    is_shared = str(work).startswith(str(_SHARED_DIR.parent))
 
+    try:
         # ── Write inputs ──
         (work / "user_code.py").write_text(processed_code, encoding="utf-8")
         (work / "config.json").write_text(
@@ -61,13 +65,23 @@ def execute_cadquery(
             encoding="utf-8",
         )
 
+        # ── Determine volume mount ──
+        if is_shared:
+            volumes = {_VOLUME_NAME: {"bind": "/shared", "mode": "rw"}}
+            job_dir_env = str(work)
+        else:
+            # Bare metal — mount the temp dir directly
+            volumes = {str(work): {"bind": "/work", "mode": "rw"}}
+            job_dir_env = "/work"
+
         # ── Launch Docker container ──
         container = None
         try:
             container = _DOCKER_CLIENT.containers.run(
                 _IMAGE,
                 command=["python", "/app/runner.py"],
-                volumes={work_dir: {"bind": "/work", "mode": "rw"}},
+                volumes=volumes,
+                environment={"JOB_DIR": job_dir_env, "XDG_CACHE_HOME": "/tmp"},
                 network_mode="none",
                 mem_limit="2g",
                 cpu_count=1,
@@ -95,13 +109,11 @@ def execute_cadquery(
                 }
 
         except Exception as exc:
-            # ── Timeout path — kill container immediately ──
             if container is not None:
                 try:
                     container.kill()
                 except Exception:
                     pass
-            # Detect timeout from Docker SDK errors
             msg = str(exc)
             if "timeout" in msg.lower() or "ReadTimeout" in type(exc).__name__:
                 return {
@@ -173,3 +185,8 @@ def execute_cadquery(
             "png_snapshots": png_snapshots,
             "dim_views": dim_views,
         }
+
+    finally:
+        # Cleanup job directory
+        if is_shared:
+            shutil.rmtree(work, ignore_errors=True)

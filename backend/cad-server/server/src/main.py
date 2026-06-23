@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from executor import execute_cadquery
 from params import extract_parameters
 
-app = FastAPI(title="VibeCAD CAD Server", version="0.3.0")
+app = FastAPI(title="Chamfer AI CAD Server", version="0.3.0")
 
 app.add_middleware(
     CORSMiddleware,

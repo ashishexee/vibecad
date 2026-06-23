@@ -1,4 +1,6 @@
 import { Plus, PanelLeft, PanelLeftClose, LogOut, LogIn } from 'lucide-react';
+import { useState } from 'react';
+import { NutIcon } from '@/components/hardware/NutIcon';
 import { SessionHistory } from '@/components/chat/SessionHistory';
 import type { SessionListItem } from '@/types';
 
@@ -26,29 +28,38 @@ export function Sidebar({
   isAuthLoading, onConnect, onDisconnect,
   sessions, activeSessionId, onSelectSession,
 }: SidebarProps) {
+  const [isRotating, setIsRotating] = useState(false);
+
+  const handleToggle = () => {
+    if (!onToggleSidebar) return;
+    setIsRotating(true);
+    onToggleSidebar();
+    window.setTimeout(() => setIsRotating(false), 300);
+  };
+
   return (
     <div className={`${isOpen ? 'w-64' : 'w-16'} flex h-full flex-shrink-0 flex-col bg-adam-bg-dark transition-all duration-300 ease-in-out`}>
       <div className="p-4 flex items-center justify-between">
         {isOpen ? (
           <>
             <button className="flex items-center" onClick={onNewTask}>
-              <span className="text-lg font-bold text-adam-text-primary tracking-tight">VibeCAD</span>
+              <span className="text-lg font-bold text-adam-text-primary tracking-tight">Chamfer AI</span>
             </button>
             <button
-              onClick={onToggleSidebar}
+              onClick={handleToggle}
               title="Collapse sidebar"
               className="h-7 w-7 flex items-center justify-center rounded-md text-adam-text-tertiary hover:text-adam-text-primary hover:bg-adam-neutral-800 transition-colors"
             >
-              <PanelLeftClose className="h-4 w-4" />
+              <NutIcon className="h-4 w-4" spinning={isRotating} />
             </button>
           </>
         ) : (
           <button
-            onClick={onToggleSidebar}
+            onClick={handleToggle}
             title="Expand sidebar"
             className="h-7 w-7 flex items-center justify-center rounded-md text-adam-text-tertiary hover:text-adam-text-primary hover:bg-adam-neutral-800 transition-colors"
           >
-            <PanelLeft className="h-4 w-4" />
+            <NutIcon className="h-4 w-4" spinning={isRotating} />
           </button>
         )}
       </div>

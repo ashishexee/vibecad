@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Eye, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen, Save } from 'lucide-react';
+import { NutIcon } from '@/components/hardware/NutIcon';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
 import type { Parameter, Message, InspectionData, ClarificationOption, WorkflowStep, SessionListItem, Specification } from '@/types';
 import { API_URL, CHAT_ENDPOINTS, MODEL_ENDPOINTS } from '@/lib/constants';
@@ -11,8 +12,7 @@ import { PreviewPanel } from '@/components/layout/PreviewPanel';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { StreamingMessage } from '@/components/chat/StreamingMessage';
 import { ClarificationMessage } from '@/components/chat/ClarificationMessage';
-import { ClarificationAnswers } from '@/components/chat/ClarificationAnswers';
-import { WorkflowTimeline } from '@/components/chat/WorkflowTimeline';
+import { MessageBubble } from '@/components/chat/MessageBubble';
 import { DimViews } from '@/components/chat/DimViews';
 import { RootHashes } from '@/components/chat/RootHashes';
 import type { RootHashData } from '@/types';
@@ -47,8 +47,8 @@ export default function App() {
   const [chatSessions, setChatSessions] = useState<SessionListItem[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [provider, setProvider] = useState('mimo');
-  const [parameters, setParameters] = useState<Parameter[]>([]);
+  const [provider, setProvider] = useState('mimo-pro');
+  const [parameters, setParameters] = useState<Record<string, ParameterSchema>>({});
   const [currentCode, setCurrentCode] = useState('');
   const [stlUrl, setStlUrl] = useState<string | null>(null);
   const [stlObjectUrl, setStlObjectUrl] = useState<string | null>(null);
@@ -69,8 +69,9 @@ export default function App() {
   const [snapshots, setSnapshots] = useState<Record<string, string>>({});
   const [dimViews, setDimViews] = useState<Record<string, string>>({});
   const [inspection, setInspection] = useState<InspectionData | null>(null);
-  const [collapsed, setCollapsed] = useState({ chat: false, preview: false, right: true });
+  const [collapsed, setCollapsed] = useState({ chat: false, preview: false, right: false });
   const [panelAnimating, setPanelAnimating] = useState(false);
+  const [rotatingKey, setRotatingKey] = useState<'chat' | 'right' | null>(null);
 
   // Refs for collapsible panels
   const chatPanelRef = useRef<PanelImperativeHandle | null>(null);
@@ -83,11 +84,15 @@ export default function App() {
     const willCollapse = !panel.isCollapsed();
     setCollapsed(c => ({ ...c, [key]: willCollapse }));
     setPanelAnimating(true);
+    if (key !== 'preview') setRotatingKey(key);
     window.requestAnimationFrame(() => {
       if (willCollapse) panel.collapse();
       else panel.expand();
     });
-    window.setTimeout(() => setPanelAnimating(false), 700);
+    window.setTimeout(() => {
+      setPanelAnimating(false);
+      if (key !== 'preview') setRotatingKey(null);
+    }, 700);
   }, []);
 
   // Refs for streaming
@@ -369,11 +374,10 @@ export default function App() {
     if (!auth.isConnected) { setPrompt(''); return; }
 
     const isClarificationContinue = !!overridePrompt;
-    const userMsg: Message = { role: 'user', content: activePrompt };
+    const userMsg: Message = { role: 'user', content: activePrompt, timestamp: Date.now() };
     const answerMsg: Message | null = answers && answerList
-      ? { role: 'user', content: answers, specifications: answerList }
+      ? { role: 'user', content: answers, specifications: answerList, timestamp: Date.now() }
       : null;
-
     if (!isClarificationContinue) {
       setMessages(prev => [...prev, userMsg]);
     }
@@ -411,7 +415,7 @@ export default function App() {
       // Add a placeholder assistant message that will accumulate steps during generation
       setMessages(prev => {
         assistantMessageIdRef.current = prev.length;
-        return [...prev, { role: 'assistant', content: '', provider, steps: [] }];
+        return [...prev, { role: 'assistant', content: '', provider, steps: [], timestamp: Date.now() }];
       });
 
       const updateSteps = (steps: WorkflowStep[]) => {
@@ -543,6 +547,11 @@ export default function App() {
             : `Generated with ${getProviderDisplayName(finalData.provider || provider)}`,
           provider: finalData.provider,
           dimViews: Object.keys(liveDimViews).length > 0 ? liveDimViews : (finalData.dimViews || {}),
+          visionVerified: finalData.visionVerified,
+          visionFeedback: visionFeedback || undefined,
+          teeProof: finalData.teeProof,
+          steps: liveSteps,
+          timestamp: Date.now(),
         };
         setMessages(prev => {
           const next = [...prev];
@@ -557,7 +566,11 @@ export default function App() {
         if (finalData.parameters) {
           setParameters(finalData.parameters);
           const vals: Record<string, number> = {};
-          finalData.parameters.forEach((p: Parameter) => { vals[p.name] = p.default; });
+          Object.entries(finalData.parameters).forEach(([name, schema]) => {
+            if (typeof schema.default === 'number') {
+              vals[name] = schema.default;
+            }
+          });
           setParamValues(vals);
         }
         setStlBase64(finalData.stlBase64);
@@ -633,7 +646,7 @@ export default function App() {
       const errorMsg = e.message?.includes('Failed to fetch')
         ? 'Cannot connect to server. Make sure ai-server and cad-server are running.'
         : e.message;
-      const errorMsgObj: Message = { role: 'assistant', content: `Error: ${errorMsg}`, error: errorMsg };
+      const errorMsgObj: Message = { role: 'assistant', content: `Error: ${errorMsg}`, error: errorMsg, timestamp: Date.now() };
       setMessages(prev => {
         const next = [...prev];
         if (assistantMessageIdRef.current !== null && next[assistantMessageIdRef.current]) {
@@ -655,8 +668,8 @@ export default function App() {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
     if (!lastUserMsg) return;
     setMessages(prev => [
-      ...prev,
-      { role: 'user', content: answers, specifications: answerList }
+      ...prev.filter(m => !m.clarification),
+      { role: 'user', content: answers, clarificationAnswers: answerList, timestamp: Date.now() }
     ]);
     handleGenerate(answers, lastUserMsg.content, answerList);
   }, [handleGenerate, messages]);
@@ -666,7 +679,7 @@ export default function App() {
       saveCurrentSession();
     }
     setMessages([]);
-    setParameters([]);
+    setParameters({});
     setCurrentCode('');
     setStlUrl(null);
     setStlBase64(undefined);
@@ -718,7 +731,7 @@ export default function App() {
             {!hasModel ? (
               <LampContainer className="flex-1 min-h-0">
                 <h1 className="mb-8 text-center text-2xl font-medium text-adam-text-primary md:text-3xl">
-                  What can VibeCAD help you build today?
+                  What can Chamfer AI help you build today?
                 </h1>
                 <GlowCard glowColor="blue" customSize className="w-full max-w-2xl">
                   <div className="space-y-4">
@@ -726,7 +739,7 @@ export default function App() {
                       prompt={prompt} setPrompt={setPrompt} onSubmit={handleGenerate}
                       isGenerating={isGenerating} isFocused={isFocused} setIsFocused={setIsFocused}
                       provider={provider} setProvider={setProvider}
-                      placeholder="Start building with VibeCAD..."
+                      placeholder="Start building with Chamfer AI..."
                       reasoningEnabled={reasoningEnabled} setReasoningEnabled={setReasoningEnabled}
                       showAnimatedPlaceholder
                       isConnected={auth.isConnected}
@@ -744,7 +757,7 @@ export default function App() {
               </LampContainer>
             ) : (
               <>
-              <ResizablePanelGroup direction="horizontal" autoSaveId="vibecad-editor-v3" className={cn('h-full w-full', panelAnimating && 'panel-animated')}>
+              <ResizablePanelGroup direction="horizontal" autoSaveId="chamfer-ai-editor-v3" className={cn('h-full w-full', panelAnimating && 'panel-animated')}>
 
                 <ResizablePanel
                   panelRef={chatPanelRef}
@@ -761,46 +774,31 @@ export default function App() {
                   }}
                   className="bg-adam-bg-secondary-dark"
                 >
-                  <div className="relative flex h-full min-w-0 flex-col border-r border-adam-neutral-700 bg-adam-bg-secondary-dark">
-                    <div className="flex items-center justify-between p-3 border-b border-adam-neutral-700">
-                      <span className="text-sm font-medium text-adam-text-primary">Chat</span>
+                  <div className="relative flex h-full min-w-0 flex-col border-r border-adam-neutral-700/40 bg-adam-bg-secondary-dark">
+                    {/* Chat header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-adam-neutral-700/40 bg-gradient-to-b from-white/[0.02] to-transparent">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${isGenerating ? 'bg-adam-blue animate-pulse' : 'bg-adam-neutral-600'}`} />
+                        <span className="text-sm font-semibold text-adam-text-primary">Chat</span>
+                      </div>
+                      <span className="text-[10px] text-adam-text-tertiary/70 tabular-nums">
+                        {messages.filter(m => !m.clarification).length} messages
+                      </span>
                     </div>
-                    <div ref={chatContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-3 pb-3 space-y-3">
+
+                    {/* Message list */}
+                    <div ref={chatContainerRef} onScroll={handleScroll} className="chat-scroll flex-1 overflow-y-auto px-3 py-3 space-y-2.5">
                       {messages.map((msg, i) => (
                         msg.clarification ? (
                           <ClarificationMessage key={i} questions={msg.clarification} onSubmit={handleClarificationSubmit} isGenerating={isGenerating} />
                         ) : (
                           (isGenerating && i === messages.length - 1 && msg.role === 'assistant' && !msg.content) ? null : (
-                          <div key={i} className={`rounded-xl p-3 text-sm ${msg.role === 'user' ? 'bg-adam-background-1' : msg.error ? 'bg-red-500/10' : 'bg-adam-background-1'}`}>
-                            <div className="text-[10px] text-adam-text-tertiary mb-1 font-medium">
-                              {msg.role === 'user' ? 'You' : msg.provider ? getProviderDisplayName(msg.provider) : 'VibeCAD'}
-                            </div>
-                            {msg.specifications && msg.specifications.length > 0 ? (
-                              <ClarificationAnswers specifications={msg.specifications} />
-                            ) : (
-                              <div className="text-adam-text-primary leading-relaxed">{msg.content}</div>
-                            )}
-
-                            {msg.role === 'assistant' && (
-                              <WorkflowTimeline provider={msg.provider} />
-                            )}
-
-                            {msg.dimViews && Object.keys(msg.dimViews).length > 0 && (
-                              <DimViews dimViews={msg.dimViews} />
-                            )}
-
-                            {msg.role === 'assistant' && i === messages.length - 1 && (
-                              <RootHashes hashes={rootHashes} loading={rootHashesLoading} />
-                            )}
-
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {msg.content.startsWith('Generated with') && msg.content.includes('vision') && (
-                                <span className="inline-flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-400/10 rounded-full px-2.5 py-1">
-                                  <Eye className="h-3 w-3" /> Vision-verified
-                                </span>
+                            <>
+                              <MessageBubble key={i} message={msg} />
+                              {msg.role === 'assistant' && i === messages.length - 1 && (
+                                <RootHashes hashes={rootHashes} loading={rootHashesLoading} />
                               )}
-                            </div>
-                          </div>
+                            </>
                           )
                         )
                       ))}
@@ -813,7 +811,9 @@ export default function App() {
                       )}
                       <div ref={chatEndRef} />
                     </div>
-                    <div className="border-t border-adam-neutral-700 p-3">
+
+                    {/* Input dock */}
+                    <div className="border-t border-adam-neutral-700/40 p-3 bg-gradient-to-t from-white/[0.01] to-transparent">
                       <ChatInput
                         prompt={prompt} setPrompt={setPrompt} onSubmit={handleGenerate}
                         isGenerating={isGenerating} isFocused={isFocused} setIsFocused={setIsFocused}
@@ -835,7 +835,7 @@ export default function App() {
                     title={collapsed.chat ? 'Show chat' : 'Hide chat'}
                     className="absolute top-1/2 left-full -translate-y-1/2 h-7 w-7 glass-hud rounded-md flex items-center justify-center text-adam-text-secondary hover:text-adam-blue hover:bg-adam-blue/15 transition-colors pointer-events-auto cursor-pointer outline-none"
                   >
-                    {collapsed.chat ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                    <NutIcon className="h-4 w-4" spinning={rotatingKey === 'chat'} />
                   </button>
                 </ResizableHandle>
 
@@ -870,7 +870,7 @@ export default function App() {
                     title={collapsed.right ? 'Show inspect' : 'Hide inspect'}
                     className="absolute top-1/2 left-0 -translate-x-full -translate-y-1/2 h-7 w-7 glass-hud rounded-md flex items-center justify-center text-adam-text-secondary hover:text-adam-blue hover:bg-adam-blue/15 transition-colors pointer-events-auto cursor-pointer outline-none"
                   >
-                    {collapsed.right ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
+                    <NutIcon className="h-4 w-4" spinning={rotatingKey === 'right'} />
                   </button>
                 </ResizableHandle>
 
@@ -879,7 +879,7 @@ export default function App() {
                   collapsible
                   collapsedSize={0}
                   minSize={300}
-                  defaultSize={0}
+                  defaultSize={26}
                   maxSize={400}
                   order={3}
                   onResize={size => {
@@ -890,26 +890,34 @@ export default function App() {
                   className="bg-adam-bg-secondary-dark"
                 >
                   <div className="flex h-full flex-col relative">
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-adam-neutral-700">
-                      <span className="text-xs font-medium text-adam-text-tertiary uppercase tracking-wider">Inspect</span>
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-adam-neutral-700/40 bg-gradient-to-b from-white/[0.02] to-transparent">
+                      <span className="text-xs font-semibold text-adam-text-tertiary uppercase tracking-wider">Inspect</span>
+                      {inspection && (
+                        <div className="flex items-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full ${inspection.all_clear ? 'bg-emerald-400/60' : 'bg-yellow-400/60'}`} />
+                          <span className="text-[10px] text-adam-text-tertiary/70">{inspection.all_clear ? 'All clear' : 'Issues'}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex-1 overflow-y-auto">
+                    <div className="chat-scroll flex-1 overflow-y-auto">
+                      {/* Inspection */}
                       {inspection && <InspectionPanel inspection={inspection} />}
 
                       {Object.keys(snapshots).length > 0 && <SnapshotGallery snapshots={snapshots} />}
 
                       {Object.keys(dimViews).length > 0 && (
-                        <div className="p-4 border-b border-adam-neutral-700">
-                          <h3 className="text-xs font-semibold text-adam-text-tertiary uppercase tracking-wider mb-3">Dimensional Views</h3>
+                        <div className="p-4 border-b border-adam-neutral-700/40">
+                          <h3 className="text-xs font-semibold text-adam-text-tertiary/80 uppercase tracking-wider mb-3">Dimensional Views</h3>
                           <DimViews dimViews={dimViews} />
                         </div>
                       )}
 
+                      {/* Parameters */}
                       {parameters.length > 0 && (
-                        <div className="p-4 border-b border-adam-neutral-700">
+                        <div className="p-4 border-b border-adam-neutral-700/40">
                           <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-xs font-semibold text-adam-text-tertiary uppercase tracking-wider">Parameters</h3>
-                            <span className="text-[10px] text-adam-text-tertiary">{parameters.length} params</span>
+                            <h3 className="text-xs font-semibold text-adam-text-tertiary/80 uppercase tracking-wider">Parameters</h3>
+                            <span className="text-[10px] text-adam-text-tertiary/60 tabular-nums">{parameters.length} params</span>
                           </div>
                           <ParameterPanel parameters={parameters} values={paramValues} onChange={handleParamChange} />
                           {isParamUpdating && (
@@ -918,7 +926,7 @@ export default function App() {
                             </div>
                           )}
                           {paramError && (
-                            <div className="mt-2 text-[10px] text-red-400 bg-red-500/10 rounded-md px-2 py-1.5">
+                            <div className="mt-2 flex items-start gap-2 text-[11px] text-red-400/90 bg-red-500/[0.06] rounded-lg px-3 py-2 ring-1 ring-red-500/10">
                               {paramError}
                             </div>
                           )}
@@ -950,6 +958,7 @@ export default function App() {
 
                       {currentCode && <CodeSection code={currentCode} />}
 
+                      {/* Empty State */}
                       {parameters.length === 0 && !currentCode && (
                         <div className="flex-1 flex items-center justify-center p-6">
                           <div className="text-center">
@@ -965,7 +974,6 @@ export default function App() {
                     </div>
                   </div>
                 </ResizablePanel>
-
               </ResizablePanelGroup>
               </>
             )}
