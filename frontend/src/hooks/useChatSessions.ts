@@ -1,7 +1,6 @@
 import { useCallback, useEffect } from "react";
 import type { AppStore } from "@/hooks/useAppStore";
 import { API_URL, CHAT_ENDPOINTS, MODEL_ENDPOINTS } from "@/lib/constants";
-import type { Parameter } from "@/types";
 
 /**
  * Handles chat session CRUD — save, load, list, and auth verification.
@@ -86,11 +85,13 @@ export function useChatSessions(
         setLatestMessageOrder(null);
         setHasUnsavedParamIteration(false);
         setModelStorageStatus(null);
-        setParameters(session.parameters || []);
-        if (session.parameters?.length) {
+        setParameters(session.parameters || {});
+        if (session.parameters && Object.keys(session.parameters).length > 0) {
           const vals: Record<string, number> = {};
-          session.parameters.forEach((p: Parameter) => {
-            vals[p.name] = p.default;
+          Object.entries(session.parameters).forEach(([name, schema]) => {
+            if (typeof schema.default === "number") {
+              vals[name] = schema.default;
+            }
           });
           setParamValues(vals);
         }
@@ -140,11 +141,13 @@ export function useChatSessions(
               setRootHashes(null);
               setTxSeqs(null);
             }
-            if (model.parameters?.length) {
+            if (model.parameters && Object.keys(model.parameters).length > 0) {
               setParameters(model.parameters);
               const modelVals: Record<string, number> = {};
-              model.parameters.forEach((p: Parameter) => {
-                modelVals[p.name] = p.default;
+              Object.entries(model.parameters).forEach(([name, schema]) => {
+                if (typeof schema.default === "number") {
+                  modelVals[name] = schema.default;
+                }
               });
               setParamValues(modelVals);
             }
