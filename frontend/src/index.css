@@ -1,11 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-@font-face {
-  font-family: 'Mechanical';
-  src: url('/Mechanical-FREE.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -13,9 +7,10 @@
 
 @layer utilities {
   .font-title {
-    font-family: 'Mechanical', 'Inter', sans-serif !important;
-    font-size: 15px !important;
-    letter-spacing: 0.05em !important;
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    font-weight: 600;
   }
   .bg-grid-pattern {
     background-image: 

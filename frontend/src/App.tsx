@@ -1086,12 +1086,7 @@ export default function App() {
                               <AlertTriangle className="h-3.5 w-3.5 text-yellow-400/90" />
                               <span className="font-title font-bold text-yellow-400/90 tracking-wide">Warnings</span>
                             </>
-                          ) : (
-                            <>
-                              <CheckCircle className="h-3.5 w-3.5 text-green-400/90" />
-                              <span className="font-title font-bold text-green-400/90 tracking-wide">All Checks Passed</span>
-                            </>
-                          )}
+                          ) : null}
                         </div>
                       )}
                     </div>
@@ -1207,7 +1202,7 @@ export default function App() {
                           >
                             <div className="flex items-center gap-2">
                               <ChevronRight className={`h-3.5 w-3.5 text-adam-text-tertiary transition-transform duration-200 ${codeExpanded ? 'rotate-90' : ''}`} />
-                              <h3 className="font-title font-bold text-adam-text-tertiary uppercase tracking-widest">Generated Code <span className="text-[10px] font-sans font-normal text-pink-400/70 normal-case tracking-normal">by</span> <span className="text-pink-400 font-bold">0G</span></h3>
+                              <h3 className="font-title font-bold text-adam-text-secondary uppercase tracking-widest">Generated Code <span className="text-[10px] font-sans font-normal text-pink-400/70 normal-case tracking-normal">by</span> <span className="text-pink-400 font-bold">0G</span></h3>
                             </div>
                           </div>
                           {codeExpanded && (

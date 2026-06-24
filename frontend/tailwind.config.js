@@ -14,7 +14,7 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif', 'system-ui'],
-        title: ['Mechanical', 'sans-serif'],
+        title: ['Plus Jakarta Sans', 'sans-serif'],
       },
       colors: {
         'adam-bg-dark': '#191A1A',

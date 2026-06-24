@@ -32,14 +32,14 @@ export function ExampleGallery({ onSelect }: ExampleGalleryProps) {
   const [hovered, setHovered] = useState<number | null>(null);
 
   return (
-    <section className="relative py-24 px-4 bg-vibe-paper">
+    <section className="relative py-24 px-4 bg-adam-bg-dark">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
-          <span className="text-xs font-mono font-semibold text-vibe-cobalt uppercase tracking-widest">Examples</span>
-          <h2 className="font-display font-bold text-vibe-ink text-3xl md:text-4xl mt-3 mb-4">
+          <span className="text-xs font-mono font-semibold text-adam-blue uppercase tracking-widest">Examples</span>
+          <h2 className="font-title font-bold text-adam-text-primary text-3xl md:text-4xl mt-3 mb-4">
             Parts you can build right now
           </h2>
-          <p className="text-vibe-slate max-w-xl mx-auto">
+          <p className="text-adam-text-secondary max-w-xl mx-auto">
             These are real prompts. The parameters are extracted from the generated CadQuery code.
           </p>
         </div>
@@ -52,12 +52,12 @@ export function ExampleGallery({ onSelect }: ExampleGalleryProps) {
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
               className={cn(
-                'group text-left rounded-2xl border bg-white p-5 transition-all duration-300 hover:shadow-lg',
-                hovered === i ? 'border-vibe-cobalt shadow-vibe-cobalt/10' : 'border-vibe-subtle'
+                'group text-left rounded-2xl border p-5 transition-all duration-300 hover:shadow-lg',
+                hovered === i ? 'border-adam-blue/40 shadow-adam-blue/10 bg-white/[0.03]' : 'border-white/[0.06] bg-white/[0.02]'
               )}
             >
-              <div className="w-full h-32 rounded-xl bg-vibe-paper border border-vibe-subtle mb-4 flex items-center justify-center overflow-hidden">
-                <svg viewBox="0 0 120 90" className="w-20 h-20 text-vibe-cobalt/80">
+              <div className="w-full h-32 rounded-xl bg-black/30 border border-white/[0.06] mb-4 flex items-center justify-center overflow-hidden">
+                <svg viewBox="0 0 120 90" className="w-20 h-20 text-adam-blue/60">
                   <path
                     d="M30 70 L30 30 L60 15 L90 30 L90 70 L60 85 Z"
                     fill="currentColor"
@@ -71,19 +71,19 @@ export function ExampleGallery({ onSelect }: ExampleGalleryProps) {
                   />
                 </svg>
               </div>
-              <h3 className="font-display font-semibold text-vibe-ink text-base mb-2 capitalize">
+              <h3 className="font-title font-semibold text-adam-text-primary text-base mb-2 capitalize">
                 {ex.prompt}
               </h3>
               <div className="space-y-1 mb-4">
                 {ex.params.map((p) => (
-                  <div key={p} className="font-mono text-[10px] text-vibe-slate bg-vibe-paper px-2 py-1 rounded">
+                  <div key={p} className="font-mono text-[10px] text-adam-text-tertiary bg-black/30 px-2 py-1 rounded">
                     {p}
                   </div>
                 ))}
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {ex.tags.map((tag) => (
-                  <span key={tag} className="text-[10px] font-medium text-vibe-cobalt bg-vibe-cobalt/10 px-2 py-0.5 rounded-full">
+                  <span key={tag} className="text-[10px] font-medium text-adam-blue bg-adam-blue/10 px-2 py-0.5 rounded-full">
                     {tag}
                   </span>
                 ))}

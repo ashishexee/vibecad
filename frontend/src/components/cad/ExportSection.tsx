@@ -68,7 +68,7 @@ export function ExportSection({ stlBase64, stepBase64, exportFilename, setExport
             type="text"
             value={exportFilename}
             onChange={e => setExportFilename(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
-            className="w-full bg-adam-bg-dark border border-adam-neutral-700 rounded-lg px-3 py-1.5 text-xs text-adam-text-primary outline-none focus:border-adam-blue transition-colors"
+            className="w-full bg-adam-bg-dark border border-adam-neutral-700 rounded-xl px-3 py-1.5 text-xs text-adam-text-primary outline-none focus:border-adam-blue transition-colors"
             placeholder="model"
           />
         </div>

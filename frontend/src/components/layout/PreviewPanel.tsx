@@ -69,6 +69,7 @@ export function PreviewPanel({
   const [axesVisible, setAxesVisible] = useState(true);
   const [activeView, setActiveView] = useState<ViewPresetId>("iso");
   const [bounds, setBounds] = useState<THREE.Sphere | null>(null);
+  const hasAutoFitted = useRef(false);
 
   const { animateTo, fitToView, resetCamera } = useViewPresets(
     cameraRef,
@@ -91,11 +92,13 @@ export function PreviewPanel({
     [],
   );
 
-  // Auto-fit camera once both refs and bounds are ready
+  // Auto-fit camera only on first load, not on subsequent param updates
   useEffect(() => {
     if (!stlUrl || !bounds || !controlsRef.current || !cameraRef.current || isParamUpdating) {
       return;
     }
+    if (hasAutoFitted.current) return;
+    hasAutoFitted.current = true;
     const timeout = setTimeout(() => {
       fitToView(bounds.radius);
     }, 100);

@@ -199,7 +199,7 @@ export function WorkflowTimeline({ steps, reasoning, provider }: WorkflowTimelin
         <div className="border-t border-adam-neutral-700/20 px-3 py-2">
           <button
             onClick={() => setReasoningOpen(prev => !prev)}
-            className="w-full flex items-center gap-1.5 font-title font-bold text-adam-text-tertiary hover:text-adam-text-secondary transition-colors uppercase tracking-wider"
+            className="w-full flex items-center gap-1.5 font-title font-bold text-adam-text-secondary hover:text-adam-text-primary transition-colors uppercase tracking-wider"
           >
             <Brain className="h-3 w-3" />
             <span className="flex-1 text-left">{hasRealReasoning ? 'Model reasoning' : 'Thinking summary'}</span>
@@ -217,7 +217,7 @@ export function WorkflowTimeline({ steps, reasoning, provider }: WorkflowTimelin
                 transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
                 className="overflow-hidden"
               >
-                <div className="mt-1.5 text-[10px] text-adam-text-tertiary/70 bg-adam-bg-dark/40 rounded-lg p-2.5 max-h-48 overflow-y-auto whitespace-pre-wrap font-mono leading-relaxed ring-1 ring-adam-neutral-700/15">
+                <div className="mt-1.5 text-[10px] text-adam-text-secondary/80 bg-adam-bg-dark/40 rounded-lg p-2.5 max-h-48 overflow-y-auto whitespace-pre-wrap font-mono leading-relaxed ring-1 ring-adam-neutral-700/15">
                   {hasRealReasoning ? reasoning : syntheticReasoning}
                 </div>
               </motion.div>

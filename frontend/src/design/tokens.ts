@@ -65,7 +65,7 @@ export const colors = {
 };
 
 export const fontFamily = {
-  display: '"Space Grotesk", "Inter", system-ui, sans-serif',
+  display: '"Plus Jakarta Sans", "Inter", system-ui, sans-serif',
   body: '"Inter", system-ui, sans-serif',
   mono: '"JetBrains Mono", "Fira Code", "SF Mono", monospace',
 };

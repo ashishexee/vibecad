@@ -147,98 +147,75 @@ export function Sidebar({
     window.setTimeout(() => setCopied(false), 2000);
   };
 
+  const expandedVisible = `${isOpen ? 'opacity-100 delay-200' : 'opacity-0 delay-0 pointer-events-none'} transition-opacity duration-150`;
+  const collapsedVisible = `${!isOpen ? 'opacity-100 delay-200' : 'opacity-0 delay-0 pointer-events-none'} transition-opacity duration-150`;
+
   return (
-    <div className={`${isOpen ? 'w-64' : 'w-16'} flex h-full flex-shrink-0 flex-col bg-adam-bg-dark border-r border-white/[0.04] transition-all duration-300 ease-in-out`}>
-      {/* Header */}
-      <div className="px-4 h-14 flex items-center justify-between shrink-0">
-        {isOpen ? (
-          <>
-            <button className="flex items-center gap-2 group" onClick={onNewTask}>
-              <div className="relative flex items-center justify-center">
-                <svg width="22" height="22" viewBox="0 0 64 64" fill="none" className="shrink-0 transition-transform duration-500 group-hover:rotate-12">
-                  <defs>
-                    <linearGradient id="sidebarLogoGrad" x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%" stopColor="#00A6FF" />
-                      <stop offset="100%" stopColor="#00E5FF" />
-                    </linearGradient>
-                  </defs>
-                  <path d="M32 8L52 20V44L32 56L12 44V20L32 8Z" stroke="url(#sidebarLogoGrad)" strokeWidth="4.5" />
-                  <path d="M32 32L52 20M32 32L12 20M32 32V56" stroke="url(#sidebarLogoGrad)" strokeWidth="3" opacity="0.8" />
-                </svg>
-                {/* Subtle outer glow */}
-                <div className="absolute inset-0 bg-adam-blue/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-              </div>
-              <span className="font-title font-bold text-adam-text-primary tracking-wider group-hover:text-adam-blue transition-colors duration-200">
-                Chamfer <span className="text-adam-blue">AI</span>
-              </span>
-            </button>
-            <button
-              onClick={handleToggle}
-              title="Collapse sidebar"
-              className="h-7 w-7 flex items-center justify-center rounded-lg text-adam-text-tertiary hover:text-adam-text-primary hover:bg-white/[0.04] transition-all"
-            >
-              <NutIcon className="h-3.5 w-3.5" spinning={isRotating} />
-            </button>
-          </>
-        ) : (
+    <div className={`
+      ${isOpen ? 'w-64' : 'w-16'}
+      flex h-full flex-shrink-0 flex-col bg-adam-bg-dark border-r border-white/[0.04]
+      transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
+      overflow-hidden relative
+    `}>
+      {/* ── Expanded Content ── */}
+      <div className={`absolute inset-0 flex flex-col ${expandedVisible}`}>
+        <div className="px-4 h-14 flex items-center justify-between shrink-0">
+          <button className="flex items-center gap-2 group" onClick={onNewTask}>
+            <div className="relative flex items-center justify-center">
+              <svg width="22" height="22" viewBox="0 0 64 64" fill="none" className="shrink-0 transition-transform duration-500 group-hover:rotate-12">
+                <defs>
+                  <linearGradient id="sidebarLogoGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#00A6FF" />
+                    <stop offset="100%" stopColor="#00E5FF" />
+                  </linearGradient>
+                </defs>
+                <path d="M32 8L52 20V44L32 56L12 44V20L32 8Z" stroke="url(#sidebarLogoGrad)" strokeWidth="4.5" />
+                <path d="M32 32L52 20M32 32L12 20M32 32V56" stroke="url(#sidebarLogoGrad)" strokeWidth="3" opacity="0.8" />
+              </svg>
+              <div className="absolute inset-0 bg-adam-blue/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+            </div>
+            <span className="font-title font-bold text-adam-text-primary tracking-wider group-hover:text-adam-blue transition-colors duration-200">
+              Chamfer <span className="text-adam-blue">AI</span>
+            </span>
+          </button>
           <button
             onClick={handleToggle}
-            title="Expand sidebar"
-            className="h-8 w-8 flex items-center justify-center rounded-lg text-adam-text-tertiary hover:text-adam-text-primary hover:bg-white/[0.04] transition-all mx-auto"
+            title="Collapse sidebar"
+            className="h-7 w-7 flex items-center justify-center rounded-lg text-adam-text-tertiary hover:text-adam-text-primary hover:bg-white/[0.04] transition-all"
           >
             <NutIcon className="h-3.5 w-3.5" spinning={isRotating} />
           </button>
-        )}
-      </div>
+        </div>
 
-      {/* New Creation */}
-      <div className={`${isOpen ? 'px-3' : 'px-2'} pb-2 shrink-0`}>
-        <div className={isOpen ? '' : 'flex justify-center'}>
+        <div className="px-3 pb-2 shrink-0">
           <button
             onClick={onNewTask}
-            className={`
-              group flex items-center justify-center gap-2 transition-all duration-300
-              ${isOpen
-                ? 'w-full rounded-xl bg-gradient-to-r from-white/[0.02] to-white/[0.04] border border-white/[0.06] hover:border-adam-blue/30 hover:bg-adam-blue/[0.02] px-4 py-2.5 text-adam-text-secondary hover:text-adam-text-primary hover:shadow-[0_0_12px_rgba(0,166,255,0.08)]'
-                : 'h-9 w-9 rounded-xl bg-gradient-to-b from-white/[0.02] to-white/[0.04] text-adam-text-secondary hover:text-adam-text-primary hover:border-adam-blue/30 hover:bg-adam-blue/[0.02] border border-white/[0.06] hover:shadow-[0_0_12px_rgba(0,166,255,0.08)]'
-              }
-            `}
+            className="w-full group flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-white/[0.02] to-white/[0.04] border border-white/[0.06] hover:border-adam-blue/30 hover:bg-adam-blue/[0.02] px-4 py-2.5 text-adam-text-secondary hover:text-adam-text-primary hover:shadow-[0_0_12px_rgba(0,166,255,0.08)] transition-all duration-300"
           >
             <Plus className="h-4 w-4 transition-transform group-hover:rotate-90 group-hover:scale-110 duration-300" />
-            {isOpen && <span className="text-[13px] font-medium tracking-wide">New Creation</span>}
+            <span className="text-[13px] font-medium tracking-wide">New Creation</span>
           </button>
         </div>
-      </div>
 
-      {/* Divider */}
-      <div className={`${isOpen ? 'mx-3' : 'mx-2'} h-px bg-white/[0.04] shrink-0`} />
+        <div className="mx-3 h-px bg-white/[0.04] shrink-0" />
 
-      {/* Session history */}
-      {isConnected && sessions && onSelectSession && sessions.length > 0 && (
-        <div className="flex-1 overflow-y-auto min-h-0 chat-scroll">
-          {isOpen && (
+        {isConnected && sessions && onSelectSession && sessions.length > 0 && (
+          <div className="flex-1 overflow-y-auto min-h-0 chat-scroll">
             <SessionHistory
               sessions={sessions}
               activeSessionId={activeSessionId ?? null}
               onSelect={onSelectSession}
             />
-          )}
-        </div>
-      )}
-      {(!isConnected || !sessions || sessions.length === 0) && <div className="flex-1" />}
+          </div>
+        )}
+        {(!isConnected || !sessions || sessions.length === 0) && <div className="flex-1" />}
 
-      {/* Bottom Wallet Area */}
-      <div className="shrink-0 p-3 border-t border-white/[0.04] bg-white/[0.005]">
-        {isConnected && walletAddress ? (
-          /* Connected State */
-          isOpen ? (
+        <div className="shrink-0 p-3 border-t border-white/[0.04] bg-white/[0.005]">
+          {isConnected && walletAddress ? (
             <div className="group/wallet relative flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] hover:bg-white/[0.03] transition-all duration-300 shadow-md">
-              {/* Avatar */}
               <div className="relative shrink-0 select-none">
                 <WalletAvatar address={walletAddress} size={36} />
               </div>
-              
-              {/* Info & Copy */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[12px] font-semibold text-adam-text-primary truncate">
@@ -249,16 +226,10 @@ export function Sidebar({
                     title={copied ? "Copied address" : "Copy address"}
                     className="p-1 rounded hover:bg-white/[0.06] text-adam-text-tertiary hover:text-adam-text-secondary active:scale-95 transition-all"
                   >
-                    {copied ? (
-                      <Check className="h-3 w-3 text-emerald-400" />
-                    ) : (
-                      <Copy className="h-3 w-3" />
-                    )}
+                    {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
                   </button>
                 </div>
               </div>
-
-              {/* Disconnect Button (reveals on card hover) */}
               {onDisconnect && (
                 <button
                   onClick={onDisconnect}
@@ -270,7 +241,56 @@ export function Sidebar({
               )}
             </div>
           ) : (
-            /* Collapsed Connected State */
+            <div className="p-3.5 rounded-xl bg-gradient-to-b from-white/[0.02] to-white/[0.005] border border-white/[0.05] shadow-lg flex flex-col items-center text-center">
+              <div className="h-8 w-8 rounded-lg bg-adam-blue/10 flex items-center justify-center text-adam-blue mb-2 shadow-[0_0_12px_rgba(0,166,255,0.05)]">
+                <Wallet className="h-4.5 w-4.5" />
+              </div>
+              <span className="text-[12px] font-semibold text-adam-text-primary mb-0.5">Wallet Not Connected</span>
+              <p className="text-[10px] text-adam-text-secondary/70 mb-3 leading-relaxed max-w-[170px]">
+                Connect your wallet to start creating and saving projects.
+              </p>
+              <button
+                onClick={onConnect}
+                disabled={isAuthLoading}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-adam-blue to-indigo-500 py-2 px-3 text-[12px] font-semibold text-white shadow-[0_0_15px_rgba(0,166,255,0.15)] hover:shadow-[0_0_20px_rgba(0,166,255,0.3)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100 disabled:shadow-none transition-all duration-200"
+              >
+                <Wallet className="h-3.5 w-3.5" />
+                {isAuthLoading ? "Connecting..." : "Connect Wallet"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Collapsed Content ── */}
+      <div className={`absolute inset-y-0 left-0 w-16 flex flex-col items-center ${collapsedVisible}`}>
+        <div className="h-14 flex items-center justify-center shrink-0">
+          <button
+            onClick={handleToggle}
+            title="Expand sidebar"
+            className="h-8 w-8 flex items-center justify-center rounded-lg text-adam-text-tertiary hover:text-adam-text-primary hover:bg-white/[0.04] transition-all"
+          >
+            <NutIcon className="h-3.5 w-3.5" spinning={isRotating} />
+          </button>
+        </div>
+
+        <div className="pb-2 shrink-0">
+          <div className="flex justify-center">
+            <button
+              onClick={onNewTask}
+              className="h-9 w-9 rounded-xl bg-gradient-to-b from-white/[0.02] to-white/[0.04] text-adam-text-secondary hover:text-adam-text-primary hover:border-adam-blue/30 hover:bg-adam-blue/[0.02] border border-white/[0.06] hover:shadow-[0_0_12px_rgba(0,166,255,0.08)] flex items-center justify-center transition-all duration-300 group"
+            >
+              <Plus className="h-4 w-4 transition-transform group-hover:rotate-90 group-hover:scale-110 duration-300" />
+            </button>
+          </div>
+        </div>
+
+        <div className="mx-2 h-px bg-white/[0.04] shrink-0 w-8" />
+
+        <div className="flex-1" />
+
+        <div className="shrink-0 p-3 border-t border-white/[0.04] bg-white/[0.005] w-full flex justify-center">
+          {isConnected && walletAddress ? (
             <div className="flex flex-col items-center gap-2">
               <div className="relative group/avatar">
                 <div
@@ -291,39 +311,17 @@ export function Sidebar({
                 </button>
               )}
             </div>
-          )
-        ) : (
-          /* Disconnected State */
-          isOpen ? (
-            <div className="p-3.5 rounded-xl bg-gradient-to-b from-white/[0.02] to-white/[0.005] border border-white/[0.05] shadow-lg flex flex-col items-center text-center">
-              <div className="h-8 w-8 rounded-lg bg-adam-blue/10 flex items-center justify-center text-adam-blue mb-2 shadow-[0_0_12px_rgba(0,166,255,0.05)]">
-                <Wallet className="h-4.5 w-4.5" />
-              </div>
-              <span className="text-[12px] font-semibold text-adam-text-primary mb-0.5">Wallet Not Connected</span>
-              <p className="text-[10px] text-adam-text-secondary/70 mb-3 leading-relaxed max-w-[170px]">
-                Connect your wallet to start creating and saving projects.
-              </p>
-              <button
-                onClick={onConnect}
-                disabled={isAuthLoading}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-adam-blue to-indigo-500 py-2 px-3 text-[12px] font-semibold text-white shadow-[0_0_15px_rgba(0,166,255,0.15)] hover:shadow-[0_0_20px_rgba(0,166,255,0.3)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100 disabled:shadow-none transition-all duration-200"
-              >
-                <Wallet className="h-3.5 w-3.5" />
-                {isAuthLoading ? "Connecting..." : "Connect Wallet"}
-              </button>
-            </div>
           ) : (
-            /* Collapsed Disconnected State */
             <button
               onClick={onConnect}
               disabled={isAuthLoading}
               title="Connect wallet"
-              className="h-9 w-9 rounded-xl flex items-center justify-center mx-auto bg-adam-blue/10 hover:bg-adam-blue/20 text-adam-blue border border-adam-blue/20 hover:border-adam-blue/40 shadow-[0_0_10px_rgba(0,166,255,0.05)] hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all duration-200"
+              className="h-9 w-9 rounded-xl flex items-center justify-center bg-adam-blue/10 hover:bg-adam-blue/20 text-adam-blue border border-adam-blue/20 hover:border-adam-blue/40 shadow-[0_0_10px_rgba(0,166,255,0.05)] hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all duration-200"
             >
               <Wallet className="h-4 w-4" />
             </button>
-          )
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
