@@ -442,6 +442,24 @@ export function buildValidationFeedback(validation: any): string {
 
 // ─── LLM Streaming Call ──────────────────────────────────────────────
 
+export interface ZeroGMetadata {
+  model: string;
+  requestId: string;
+  providerAddress: string;
+  teeVerified?: boolean;
+  billing: {
+    inputCost: string;
+    outputCost: string;
+    totalCost: string;
+  };
+  tokens: {
+    prompt: number;
+    completion: number;
+    reasoning: number;
+    total: number;
+  };
+}
+
 export interface LLMResult {
   code: string;
   rawResponse: string;
@@ -449,7 +467,7 @@ export interface LLMResult {
   parameters: Record<string, ParameterSchema>;
   description: string;
   tags: string[];
-  teeProof?: { providerAddress: string; chatId: string; signature: string; timestamp: number; verified: boolean };
+  zeroG?: ZeroGMetadata;
 }
 
 export interface StreamCallbacks {
@@ -546,23 +564,25 @@ ${messageContent}`;
   }
   logTokenCounts(messages, `generate-${providerId || '0g'}`);
 
-  const isZeroG = providerId === '0g';
-  console.log(`[LLM] Provider: ${providerId || '0g'}, Model: ${provider.model}, Streaming: true, Images: ${images?.length || 0}`);
+  const isZeroG = provider.isZeroG === true;
+  console.log(`[LLM] Provider: ${providerId || '0g'}, Model: ${provider.model}, Streaming: true, Images: ${images?.length || 0}, 0G: ${isZeroG}`);
   if (errorFeedback) console.log(`[LLM] Retry with feedback: ${errorFeedback.slice(0, 100)}...`);
 
   let fullContent = '';
   let fullReasoning = '';
+  let lastChunk: any = null;
 
   try {
     const stream = await llm.chat.completions.create({
       model: provider.model,
       messages,
-      ...(isZeroG ? { max_tokens: 4096 } : {}),
+      ...(isZeroG ? { max_tokens: 4096, verify_tee: true } : {}),
       temperature: 0.2,
       stream: true,
-    });
+    } as any);
 
     for await (const chunk of stream) {
+      lastChunk = chunk;
       const delta = chunk.choices[0]?.delta;
       if (!delta) continue;
 
@@ -592,6 +612,33 @@ ${messageContent}`;
 
     console.log(`[LLM] Stream done. Content: ${fullContent.length} chars, Reasoning: ${fullReasoning.length} chars, Code: ${data.code.length} chars, Params: ${Object.keys(data.parameters).length}`);
     
+    // Extract 0G-specific metadata if available
+    let zeroGMeta: ZeroGMetadata | undefined;
+    if (isZeroG && lastChunk) {
+      const usage = (lastChunk as any).usage;
+      const trace = (lastChunk as any).x_0g_trace;
+      if (usage || trace) {
+        zeroGMeta = {
+          model: (lastChunk as any).model || provider.model,
+          requestId: trace?.request_id || '',
+          providerAddress: trace?.provider || '',
+          teeVerified: trace?.tee_verified === true,
+          billing: {
+            inputCost: trace?.billing?.input_cost || '',
+            outputCost: trace?.billing?.output_cost || '',
+            totalCost: trace?.billing?.total_cost || '',
+          },
+          tokens: {
+            prompt: usage?.prompt_tokens || 0,
+            completion: usage?.completion_tokens || 0,
+            reasoning: usage?.reasoning_tokens || 0,
+            total: usage?.total_tokens || 0,
+          },
+        };
+        console.log(`[0G] Metadata captured: ${zeroGMeta.tokens.total} tokens, cost: ${zeroGMeta.billing.totalCost}, provider: ${zeroGMeta.providerAddress.slice(0, 10)}...`);
+      }
+    }
+
     const result: LLMResult = {
       code: data.code,
       rawResponse: fullContent,
@@ -599,8 +646,7 @@ ${messageContent}`;
       parameters: data.parameters,
       description: data.description,
       tags: data.tags,
-      // TODO: Extract TEE proof from response headers when using 0G
-      // teeProof: isZeroG ? extractTEEProof(responseHeaders) : undefined,
+      zeroG: zeroGMeta,
     };
     
     callbacks?.onDone(result);

@@ -92,8 +92,8 @@ export async function handleGenerate(req: Request, res: Response): Promise<void>
   if (!prompt) { res.status(400).json({ error: 'Prompt is required' }); return; }
   if (provider && !config.providers[provider]) { res.status(400).json({ error: `Unknown provider: ${provider}` }); return; }
 
-  const providerId = provider || 'mimo-pro';
-  const providerConfig = config.providers[providerId] || config.providers['mimo-pro'];
+  const providerId = provider || '0g';
+  const providerConfig = config.providers[providerId] || config.providers['0g'];
   const supportsVision = providerConfig.supportsVision && enableVision === true;
 
   // Validate images if provided
@@ -455,7 +455,7 @@ export async function handleGenerate(req: Request, res: Response): Promise<void>
         snapshots: cadResult.snapshots || {},
         dimViews: cadResult.dim_views || {},
         visionVerified: supportsVision,
-        teeProof: providerId === '0g' ? { providerAddress: '0g-router', chatId: 'pending', signature: 'pending', timestamp: Date.now(), verified: true } : undefined,
+        ...(result.zeroG ? { zeroG: result.zeroG } : {}),
       });
       res.end();
       return;
@@ -585,6 +585,7 @@ export function handleListProviders(_req: Request, res: Response): void {
     hasKey: !!p.apiKey,
     supportsVision: p.supportsVision,
     maxContextTokens: p.maxContextTokens,
+    isZeroG: p.isZeroG || false,
   }));
   res.json({ providers });
 }

@@ -6,6 +6,7 @@ export interface ProviderConfig {
   supportsVision: boolean;
   maxTokens?: number;
   maxContextTokens?: number;
+  isZeroG?: boolean;
 }
 
 const FIREWORKS_BASE = 'https://api.fireworks.ai/inference/v1';
@@ -18,11 +19,22 @@ export const config = {
     '0g': {
       baseUrl: 'https://router-api.0g.ai/v1',
       model: '0GM-1.0-35B-A3B',
-      name: '0GM-1.0-35B-A3B',
+      name: '0GM',
       apiKey: process.env.OG_API_KEY || '',
       supportsVision: true,
       maxTokens: 4096,
       maxContextTokens: 40000,
+      isZeroG: true,
+    },
+    '0g-deepseek': {
+      baseUrl: 'https://router-api.0g.ai/v1',
+      model: 'deepseek-v4-flash',
+      name: 'DeepSeek V4 Flash',
+      apiKey: process.env.OG_API_KEY || '',
+      supportsVision: false,
+      maxTokens: 4096,
+      maxContextTokens: 40000,
+      isZeroG: true,
     },
     'mimo': {
       baseUrl: 'https://api.xiaomimimo.com/v1',
