@@ -60,27 +60,62 @@ export function ProviderSelector({ selected, onSelect, requireVision = false }: 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left?: number; right?: number }>({ top: 0 });
 
+  // Keep a ref to the latest selected value so async callbacks never read a stale closure.
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+
+  // ── DEBUG: Log every render ──
+  console.log('[ProviderSelector] render', {
+    selected,
+    providersCount: providers.length,
+    loading,
+    providerIds: providers.map(p => p.id),
+    selectedProvider: providers.find(p => p.id === selected)?.name ?? 'NOT FOUND',
+  });
+
+  // ── Fetch providers once on mount, re-fetch when vision requirement changes ──
   useEffect(() => {
+    console.log('[ProviderSelector] fetch effect firing');
     fetch(`${API_URL}/api/providers`)
       .then(r => r.json())
       .then(data => {
-        let list = (data.providers || []).filter((p: ProviderInfo) => p.hasKey);
-        if (requireVision) {
-          list = list.filter((p: ProviderInfo) => p.supportsVision);
-        }
-        setProviders(list);
-        
-        // Auto-switch to first vision provider if current doesn't support vision
-        if (requireVision && list.length > 0) {
-          const currentProvider = list.find((p: ProviderInfo) => p.id === selected);
-          if (!currentProvider?.supportsVision) {
-            onSelect(list[0].id);
-          }
-        }
+        const all = (data.providers || []).filter((p: ProviderInfo) => p.hasKey);
+        console.log('[ProviderSelector] fetch resolved', { count: all.length, ids: all.map((p: ProviderInfo) => p.id) });
+        setProviders(all);
       })
-      .catch(() => setProviders([]))
+      .catch((err) => {
+        console.error('[ProviderSelector] fetch failed', err);
+        setProviders([]);
+      })
       .finally(() => setLoading(false));
-  }, [requireVision, selected, onSelect]);
+  }, []); // Only fetch once — the providers list doesn't change based on selection
+
+  // ── Auto-switch: only when the selected provider is genuinely unavailable ──
+  useEffect(() => {
+    if (providers.length === 0) return;
+
+    // Build the list of valid providers for the current vision requirement
+    const valid = requireVision
+      ? providers.filter(p => p.supportsVision)
+      : providers;
+
+    // If the current selection is already valid, do nothing
+    if (valid.some(p => p.id === selectedRef.current)) {
+      console.log('[ProviderSelector] auto-switch: current selection is valid, no change', { selected: selectedRef.current });
+      return;
+    }
+
+    // Otherwise fall back to the first valid provider
+    console.log('[ProviderSelector] auto-switch: switching to first valid provider', { from: selectedRef.current, to: valid[0]?.id });
+    if (valid.length > 0) {
+      onSelect(valid[0].id);
+    }
+  }, [providers, requireVision, onSelect]);
+
+  // The list actually shown in the dropdown — filtered by vision if needed
+  const visibleProviders = requireVision
+    ? providers.filter(p => p.supportsVision)
+    : providers;
 
   const selectedProvider = providers.find(p => p.id === selected);
 
@@ -141,6 +176,7 @@ export function ProviderSelector({ selected, onSelect, requireVision = false }: 
       {open && createPortal(
         <div
           className="fixed w-[290px] max-h-[340px] overflow-y-auto rounded-2xl border border-[#2d2e2f]/90 bg-[#1e1e1f] p-1.5 shadow-2xl z-[9999] chat-scroll"
+          onMouseDown={e => e.stopPropagation()}
           style={{
             top: dropdownPos.top + 'px',
             transform: 'translateY(-100%)',
@@ -148,10 +184,14 @@ export function ProviderSelector({ selected, onSelect, requireVision = false }: 
             ...(dropdownPos.right !== undefined ? { right: dropdownPos.right + 'px' } : {}),
           }}
         >
-          {providers.map(p => (
+          {visibleProviders.map(p => (
             <button
               key={p.id}
-              onClick={() => { onSelect(p.id); setOpen(false); }}
+              onClick={() => {
+                console.log('[ProviderSelector] item clicked', { id: p.id, name: p.name, currentSelected: selected });
+                onSelect(p.id);
+                setOpen(false);
+              }}
               className={cn(
                 'flex flex-col w-full items-start rounded-xl px-4 py-3 text-left transition-colors duration-150 outline-none',
                 selected === p.id

@@ -33,6 +33,8 @@ export function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageError, setImageError] = useState<string | null>(null);
 
+  console.log('[ChatInput] render', { provider, imagesCount: images.length });
+
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;

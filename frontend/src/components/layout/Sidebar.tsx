@@ -1,4 +1,4 @@
-import { Plus, LogOut, Settings, Wallet, Copy, Check, LayoutGrid } from 'lucide-react';
+import { Plus, LogOut, Wallet, Copy, Check } from 'lucide-react';
 import { useState } from 'react';
 import { NutIcon } from '@/components/hardware/NutIcon';
 import { SessionHistory } from '@/components/chat/SessionHistory';
@@ -126,16 +126,6 @@ function WalletAvatar({ address, size = 36 }: { address: string; size?: number }
   );
 }
 
-interface ConditionalWrapperProps {
-  condition: boolean;
-  wrapper: (children: React.ReactNode) => React.ReactNode;
-  children: React.ReactNode;
-}
-
-function ConditionalWrapper({ condition, wrapper, children }: ConditionalWrapperProps) {
-  return condition ? <>{wrapper(children)}</> : <>{children}</>;
-}
-
 export function Sidebar({
   isOpen, onNewTask, onToggleSidebar, walletAddress, isConnected,
   isAuthLoading, onConnect, onDisconnect,
@@ -164,11 +154,16 @@ export function Sidebar({
       <div
         className={`${
           isOpen ? 'w-64' : 'w-16'
-        } flex h-full flex-shrink-0 flex-col bg-adam-bg-dark pb-2 transition-all duration-300 ease-in-out border-r border-white/[0.04]`}
+        } flex h-full flex-shrink-0 flex-col bg-adam-bg-dark pb-2 transition-[width] duration-300 ease-in-out border-r border-white/[0.04] overflow-hidden`}
       >
-        {/* Header Section */}
-        {isOpen ? (
-          <div className="px-4 h-14 flex items-center justify-between shrink-0">
+        {/* Header Section — both states always rendered, crossfaded */}
+        <div className="relative h-14 shrink-0">
+          {/* Expanded header */}
+          <div
+            className={`absolute inset-0 px-4 flex items-center justify-between transition-opacity duration-200 ${
+              isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
+            }`}
+          >
             <button
               type="button"
               className="flex cursor-pointer items-center space-x-2"
@@ -188,7 +183,7 @@ export function Sidebar({
                   </svg>
                   <div className="absolute inset-0 bg-adam-blue/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                 </div>
-                <span className="font-title font-bold text-adam-text-primary tracking-wider group-hover:text-adam-blue transition-colors duration-200">
+                <span className="font-title font-bold text-adam-text-primary tracking-wider group-hover:text-adam-blue transition-colors duration-200 whitespace-nowrap">
                   Chamfer <span className="text-adam-blue">AI</span>
                 </span>
               </div>
@@ -201,8 +196,13 @@ export function Sidebar({
               <NutIcon className="h-3.5 w-3.5" spinning={isRotating} />
             </button>
           </div>
-        ) : (
-          <div className="h-14 flex items-center justify-center shrink-0">
+
+          {/* Collapsed header */}
+          <div
+            className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${
+              isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            }`}
+          >
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -218,41 +218,54 @@ export function Sidebar({
               </TooltipContent>
             </Tooltip>
           </div>
-        )}
+        </div>
 
-        {/* Action button container */}
-        <div className={`${isOpen ? 'px-4' : 'px-2'} py-2 transition-all duration-300 ease-in-out`}>
-          <ConditionalWrapper
-            condition={!isOpen}
-            wrapper={(children) => (
-              <Tooltip>
-                <TooltipTrigger asChild>{children}</TooltipTrigger>
-                <TooltipContent side="right" className="flex flex-col">
-                  <span className="font-semibold">New Creation</span>
-                  <span className="text-xs text-muted-foreground">Start a new creation</span>
-                </TooltipContent>
-              </Tooltip>
-            )}
+        {/* Action button container — both states always rendered, crossfaded */}
+        <div className="relative py-2 transition-all duration-300 ease-in-out" style={{ minHeight: '52px' }}>
+          {/* Expanded: New Creation button */}
+          <div
+            className={`absolute inset-x-0 px-4 transition-opacity duration-200 ${
+              isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
+            }`}
           >
-            <div className={isOpen ? 'ml-[9px]' : 'flex justify-center'}>
+            <div className="ml-[9px]">
               <Button
                 variant="secondary"
-                className={`${
-                  isOpen
-                    ? 'flex w-[216px] items-center justify-start gap-2 rounded-[100px] border border-adam-blue bg-adam-background-1 px-4 py-3 text-[#D7D7D7] hover:bg-adam-blue/40 hover:text-adam-text-primary'
-                    : 'flex h-[30px] w-[30px] items-center justify-center rounded-[8px] border-2 border-adam-blue bg-[#191A1A] p-[2px] text-[#D7D7D7] shadow-[0px_4px_10px_0px_rgba(0,166,255,0.24)] hover:bg-adam-blue/40 hover:text-adam-text-primary'
-                } mb-4 transition-all duration-200`}
+                className="flex w-[216px] items-center justify-start gap-2 rounded-[100px] border border-adam-blue bg-adam-background-1 px-4 py-3 text-[#D7D7D7] hover:bg-adam-blue/40 hover:text-adam-text-primary mb-4 transition-all duration-200 whitespace-nowrap"
                 onClick={onNewTask}
               >
                 <Plus className="h-4.5 w-4.5 shrink-0" />
-                {isOpen && (
-                  <div className="text-sm font-semibold leading-[14px] tracking-[-0.14px] text-adam-neutral-200">
-                    New Creation
-                  </div>
-                )}
+                <div className="text-sm font-semibold leading-[14px] tracking-[-0.14px] text-adam-neutral-200">
+                  New Creation
+                </div>
               </Button>
             </div>
-          </ConditionalWrapper>
+          </div>
+
+          {/* Collapsed: New Creation icon */}
+          <div
+            className={`absolute inset-x-0 px-2 flex justify-center transition-opacity duration-200 ${
+              isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            }`}
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Button
+                    variant="secondary"
+                    className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] border-2 border-adam-blue bg-[#191A1A] p-[2px] text-[#D7D7D7] shadow-[0px_4px_10px_0px_rgba(0,166,255,0.24)] hover:bg-adam-blue/40 hover:text-adam-text-primary mb-4 transition-all duration-200"
+                    onClick={onNewTask}
+                  >
+                    <Plus className="h-4.5 w-4.5 shrink-0" />
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="flex flex-col">
+                <span className="font-semibold">New Creation</span>
+                <span className="text-xs text-muted-foreground">Start a new creation</span>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
         {/* Content list container */}
@@ -268,10 +281,15 @@ export function Sidebar({
           )}
         </div>
 
-        {/* Bottom Wallet Section */}
-        <div className={`${isOpen ? 'px-4' : 'px-2'} py-4 transition-all duration-300 ease-in-out`}>
-          {isConnected && walletAddress ? (
-            isOpen ? (
+        {/* Bottom Wallet Section — both states always rendered, crossfaded */}
+        <div className="relative py-4 transition-all duration-300 ease-in-out" style={{ minHeight: '64px' }}>
+          {/* Expanded wallet */}
+          <div
+            className={`absolute inset-x-0 px-4 transition-opacity duration-200 ${
+              isOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
+            }`}
+          >
+            {isConnected && walletAddress ? (
               <div className="flex items-center justify-between rounded-xl p-2 transition-colors duration-200 hover:bg-adam-neutral-950 group">
                 <div className="flex items-center space-x-3 min-w-0">
                   <WalletAvatar address={walletAddress} size={30} />
@@ -304,6 +322,33 @@ export function Sidebar({
                 </div>
               </div>
             ) : (
+              <div className="p-3.5 rounded-xl bg-[#212121] border border-white/[0.05] shadow-lg flex flex-col items-center text-center">
+                <div className="h-8 w-8 rounded-lg bg-adam-blue/10 flex items-center justify-center text-adam-blue mb-2 shadow-[0_0_12px_rgba(0,166,255,0.05)]">
+                  <Wallet className="h-4.5 w-4.5" />
+                </div>
+                <span className="text-[12px] font-semibold text-adam-text-primary mb-0.5 whitespace-nowrap">Wallet Not Connected</span>
+                <p className="text-[10px] text-adam-text-secondary/70 mb-3 leading-relaxed max-w-[170px]">
+                  Connect your wallet to start creating and saving projects.
+                </p>
+                <button
+                  onClick={onConnect}
+                  disabled={isAuthLoading}
+                  className="w-full flex items-center justify-center gap-2 rounded-[100px] border border-adam-blue bg-adam-bg-dark hover:bg-adam-blue/30 py-2 px-3 text-[12px] font-semibold text-adam-text-primary shadow-[0_0_15px_rgba(0,166,255,0.1)] hover:shadow-[0_0_20px_rgba(0,166,255,0.25)] active:scale-[0.98] disabled:opacity-50 disabled:scale-100 disabled:shadow-none transition-all duration-200 whitespace-nowrap"
+                >
+                  <Wallet className="h-3.5 w-3.5" />
+                  {isAuthLoading ? "Connecting..." : "Connect Wallet"}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Collapsed wallet */}
+          <div
+            className={`absolute inset-x-0 px-2 transition-opacity duration-200 ${
+              isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            }`}
+          >
+            {isConnected && walletAddress ? (
               <div className="flex flex-col items-center gap-2">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -329,42 +374,24 @@ export function Sidebar({
                   </button>
                 )}
               </div>
-            )
-          ) : isOpen ? (
-            <div className="p-3.5 rounded-xl bg-[#212121] border border-white/[0.05] shadow-lg flex flex-col items-center text-center">
-              <div className="h-8 w-8 rounded-lg bg-adam-blue/10 flex items-center justify-center text-adam-blue mb-2 shadow-[0_0_12px_rgba(0,166,255,0.05)]">
-                <Wallet className="h-4.5 w-4.5" />
-              </div>
-              <span className="text-[12px] font-semibold text-adam-text-primary mb-0.5">Wallet Not Connected</span>
-              <p className="text-[10px] text-adam-text-secondary/70 mb-3 leading-relaxed max-w-[170px]">
-                Connect your wallet to start creating and saving projects.
-              </p>
-              <button
-                onClick={onConnect}
-                disabled={isAuthLoading}
-                className="w-full flex items-center justify-center gap-2 rounded-[100px] border border-adam-blue bg-adam-bg-dark hover:bg-adam-blue/30 py-2 px-3 text-[12px] font-semibold text-adam-text-primary shadow-[0_0_15px_rgba(0,166,255,0.1)] hover:shadow-[0_0_20px_rgba(0,166,255,0.25)] active:scale-[0.98] disabled:opacity-50 disabled:scale-100 disabled:shadow-none transition-all duration-200"
-              >
-                <Wallet className="h-3.5 w-3.5" />
-                {isAuthLoading ? "Connecting..." : "Connect Wallet"}
-              </button>
-            </div>
-          ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={onConnect}
-                  disabled={isAuthLoading}
-                  className="h-[36px] w-[36px] mx-auto rounded-lg flex items-center justify-center bg-adam-blue/10 hover:bg-adam-blue/20 text-adam-blue border border-adam-blue/20 hover:border-adam-blue/40 shadow-[0_0_10px_rgba(0,166,255,0.05)] hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all duration-200"
-                >
-                  <Wallet className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="flex flex-col">
-                <span className="font-semibold">Connect Wallet</span>
-                <span className="text-xs text-muted-foreground">Sign in to save projects</span>
-              </TooltipContent>
-            </Tooltip>
-          )}
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={onConnect}
+                    disabled={isAuthLoading}
+                    className="h-[36px] w-[36px] mx-auto rounded-lg flex items-center justify-center bg-adam-blue/10 hover:bg-adam-blue/20 text-adam-blue border border-adam-blue/20 hover:border-adam-blue/40 shadow-[0_0_10px_rgba(0,166,255,0.05)] hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all duration-200"
+                  >
+                    <Wallet className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="flex flex-col">
+                  <span className="font-semibold">Connect Wallet</span>
+                  <span className="text-xs text-muted-foreground">Sign in to save projects</span>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </div>
       </div>
     </TooltipProvider>
